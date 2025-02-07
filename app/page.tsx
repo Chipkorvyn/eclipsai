@@ -1,101 +1,208 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useState, useEffect } from 'react';
+import plansData from '../data/plans.json';
+
+//
+// 1) Define the Plan interface
+//
+interface Plan {
+  id: number;
+  insurer: string;
+  planType: string;
+  franchise: number;
+  annualPremium: number;
+  planName: string;
+}
+
+//
+// 2) Define the props for each step
+//
+type WizardProps = {
+  formData: {
+    name: string;
+    postalCode: string;
+    yearOfBirth: string;
+    franchise: number;
+    currentInsurer: string;
+  };
+  setFormData: React.Dispatch<
+    React.SetStateAction<{
+      name: string;
+      postalCode: string;
+      yearOfBirth: string;
+      franchise: number;
+      currentInsurer: string;
+    }>
+  >;
+  handleNext?: () => void;
+  handleBack?: () => void;
+  filteredPlans?: Plan[];
+  setFilteredPlans?: React.Dispatch<React.SetStateAction<Plan[]>>;
+};
+
+//
+// 3) Main Wizard Component (no return-type annotation)
+//
+export default function WizardPage() {
+  const [step, setStep] = useState<number>(1);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    postalCode: '',
+    yearOfBirth: '',
+    franchise: 300,
+    currentInsurer: ''
+  });
+
+  const [filteredPlans, setFilteredPlans] = useState<Plan[]>([]);
+
+  function handleNext() {
+    setStep((prev) => prev + 1);
+  }
+
+  function handleBack() {
+    setStep((prev) => prev - 1);
+  }
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div style={{ margin: '2rem' }}>
+      <h1>Insurance Wizard</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {step === 1 && (
+        <StepOne
+          formData={formData}
+          setFormData={setFormData}
+          handleNext={handleNext}
+        />
+      )}
+
+      {step === 2 && (
+        <StepTwo
+          formData={formData}
+          setFormData={setFormData}
+          handleNext={handleNext}
+          handleBack={handleBack}
+        />
+      )}
+
+      {step === 3 && (
+        <ResultsStep
+          formData={formData}
+          setFormData={setFormData}   // ADD THIS LINE
+          filteredPlans={filteredPlans}
+          setFilteredPlans={setFilteredPlans}
+          handleBack={handleBack}
+        />
+      )}
+    </div>
+  );
+}
+
+//
+// 4) Sub-Components: Remove any ": JSX.Element" return types
+//
+
+function StepOne({ formData, setFormData, handleNext }: WizardProps) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }
+
+  return (
+    <div>
+      <h2>Step 1: Personal Info</h2>
+      <div>
+        <label>Name:</label>
+        <input name="name" value={formData.name} onChange={handleChange} />
+      </div>
+
+      <div>
+        <label>Postal Code:</label>
+        <input name="postalCode" value={formData.postalCode} onChange={handleChange} />
+      </div>
+
+      <div>
+        <label>Year of Birth:</label>
+        <input name="yearOfBirth" value={formData.yearOfBirth} onChange={handleChange} />
+      </div>
+
+      <button onClick={handleNext}>Next</button>
+    </div>
+  );
+}
+
+function StepTwo({ formData, setFormData, handleNext, handleBack }: WizardProps) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    const { name, value } = e.target;
+    // if name=franchise, convert it to number
+    setFormData((prev) => ({ ...prev, [name]: name === 'franchise' ? Number(value) : value }));
+  }
+
+  return (
+    <div>
+      <h2>Step 2: Insurance Details</h2>
+      <div>
+        <label>Franchise:</label>
+        <select name="franchise" value={formData.franchise} onChange={handleChange}>
+          <option value="300">300</option>
+          <option value="500">500</option>
+          <option value="1000">1000</option>
+          <option value="1500">1500</option>
+          <option value="2000">2000</option>
+          <option value="2500">2500</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Current Insurer:</label>
+        <input
+          name="currentInsurer"
+          value={formData.currentInsurer}
+          onChange={handleChange}
+        />
+      </div>
+
+      <button onClick={handleBack}>Back</button>
+      <button onClick={handleNext}>Next</button>
+    </div>
+  );
+}
+
+function ResultsStep({
+  formData,
+  filteredPlans = [],
+  setFilteredPlans,
+  handleBack
+}: WizardProps) {
+  useEffect(() => {
+    if (!setFilteredPlans) return;
+
+    const newPlans = (plansData as Plan[]).filter(
+      (plan) => plan.franchise === formData.franchise
+    );
+    setFilteredPlans(newPlans);
+  }, [formData.franchise, setFilteredPlans]);
+
+  return (
+    <div>
+      <h2>Step 3: Plan Results</h2>
+      <p>Franchise selected: {formData.franchise}</p>
+      <p>Total results: {filteredPlans.length}</p>
+
+      {filteredPlans.map((plan) => (
+        <div
+          key={plan.id}
+          style={{ border: '1px solid #ccc', margin: '1rem 0', padding: '1rem' }}
+        >
+          <h3>Insurer: {plan.insurer}</h3>
+          <p>Plan Type: {plan.planType}</p>
+          <p>Plan Name: {plan.planName}</p>
+          <p>Annual Premium: {plan.annualPremium}</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      ))}
+
+      <button onClick={handleBack}>Back</button>
     </div>
   );
 }
