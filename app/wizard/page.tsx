@@ -6,9 +6,9 @@ import PlanOptionsPanel from './PlanOptionsPanel';
 import PlanDetailsPanel from './PlanDetailsPanel';
 
 /**
- * Overall parent component controlling:
- * - userInputs (including unrestricted, wantsAlternativeModel, doc preference)
- * - plan options conditionally if basic info is complete
+ * This is the parent layout controlling:
+ * - userInputs (including unrestricted, telePharm, familyDoc, hmo)
+ * - shows plan options if name/postal/YOB are filled
  * - selected plan displayed in PlanDetails
  */
 export default function DemoPage() {
@@ -19,16 +19,21 @@ export default function DemoPage() {
     franchise: 300,
     currentInsurer: 'I have no insurer',
     currentPlan: '',
-    unrestrictedAccess: false,     // if true => only TAR-BASE
-    wantsAlternativeModel: false,  // if true => only TAR-DIV (telemedicine, pharmacy)
-    hasPreferredDoctor: false,     // only shown if wantsAlternativeModel = false
+    unrestrictedAccess: false, // if true => show only TAR-BASE
+
+    // For restricted scenario:
+    wantsTelePharm: false,     // if true => include TAR-DIV
+    wantsFamilyDocModel: false,// if true => include TAR-HAM
+    wantsHmoModel: false,      // if true => include TAR-HMO
+
+    // "family doctor" logic:
+    hasPreferredDoctor: false,     // if user picks "family doc model" yes
     preferredDoctorName: ''        // typed doc name
   });
 
-  // The newly selected plan from PlanOptionsPanel
   const [activePlan, setActivePlan] = useState<any>(null);
 
-  // Show plan options only if name, postalCode, yearOfBirth are filled
+  // Only show plan options if name/postal code/yearOfBirth are non-blank
   const infoComplete =
     userInputs.name.trim() !== '' &&
     userInputs.postalCode.trim() !== '' &&
@@ -36,12 +41,12 @@ export default function DemoPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
-      {/* Left Column: Input Panel */}
+      {/* LEFT COLUMN: Input panel */}
       <div style={{ flex: '1', borderRight: '1px solid #ccc' }}>
         <InputPanel userInputs={userInputs} setUserInputs={setUserInputs} />
       </div>
 
-      {/* Middle Column: Plan Options or "fill out info" message */}
+      {/* MIDDLE COLUMN: Plan options or fill-out-info message */}
       <div style={{ flex: '1', borderRight: '1px solid #ccc' }}>
         {infoComplete ? (
           <PlanOptionsPanel
@@ -56,7 +61,7 @@ export default function DemoPage() {
         )}
       </div>
 
-      {/* Right Column: Plan Details */}
+      {/* RIGHT COLUMN: Plan details */}
       <div style={{ flex: '1' }}>
         <PlanDetailsPanel plan={activePlan} />
       </div>

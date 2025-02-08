@@ -12,9 +12,13 @@ export default function PlanOptionsPanel({
     franchise: number;
     currentInsurer: string;
     currentPlan: string;
-    unrestrictedAccess: boolean;      // if true => TAR-BASE only
-    wantsAlternativeModel: boolean;   // if true => TAR-DIV only
-    hasPreferredDoctor: boolean;      // doc preference if alternative=no
+    unrestrictedAccess: boolean;
+
+    wantsTelePharm: boolean;     // => include TAR-DIV
+    wantsFamilyDocModel: boolean;// => include TAR-HAM
+    wantsHmoModel: boolean;      // => include TAR-HMO
+
+    hasPreferredDoctor: boolean;
     preferredDoctorName: string;
   };
   onSelectPlan: (plan: any) => void;
@@ -23,7 +27,7 @@ export default function PlanOptionsPanel({
   const [currentPremium, setCurrentPremium] = useState<number>(0);
 
   useEffect(() => {
-    // 1) Find the user's current plan premium
+    // 1) Find user's current plan premium
     let premium = 0;
     if (
       userInputs.currentInsurer !== 'I have no insurer' &&
@@ -41,33 +45,45 @@ export default function PlanOptionsPanel({
 
     // 2) Filter logic
     const results = (plansData as any[]).filter((plan) => {
-      // must match franchise
+      // Must match franchise
       if (Number(plan.franchise) !== userInputs.franchise) return false;
 
-      // if unrestricted => only TAR-BASE
+      // If unrestricted => only TAR-BASE
       if (userInputs.unrestrictedAccess) {
         if (plan.planType !== 'TAR-BASE') return false;
       } else {
-        // restricted
-        // check wantsAlternativeModel:
-        if (userInputs.wantsAlternativeModel) {
-          // yes => only TAR-DIV
-          if (plan.planType !== 'TAR-DIV') return false;
-        } else {
-          // no => show TAR-HAM / TAR-HMO
-          if (plan.planType !== 'TAR-HAM' && plan.planType !== 'TAR-HMO') {
-            return false;
-          }
-          // now also check doc preference
+        // restricted scenario
+        // user might pick multiple toggles: telePharm, familyDocModel, hmo
+
+        // if user picks NO toggles => no plan => we check each
+        let planTypeOk = false;
+
+        if (userInputs.wantsTelePharm && plan.planType === 'TAR-DIV') {
+          planTypeOk = true;
+        }
+        if (userInputs.wantsFamilyDocModel && plan.planType === 'TAR-HAM') {
+          planTypeOk = true;
+        }
+        if (userInputs.wantsHmoModel && plan.planType === 'TAR-HMO') {
+          planTypeOk = true;
+        }
+
+        // If none toggles are on => planTypeOk remains false => exclude
+        if (!planTypeOk) return false;
+
+        // Now doc preference only if user selects familyDocModel 
+        if (userInputs.wantsFamilyDocModel) {
           if (userInputs.hasPreferredDoctor) {
             const docName = userInputs.preferredDoctorName.trim().toLowerCase();
             if (docName !== '') {
-              // if docName is blank, we skip
+              // find doc in doctorsData
               const docObj = (doctorsData as any[]).find(
                 (d) => d.doctorName.toLowerCase() === docName
               );
-              if (!docObj) return false; // doc not found => exclude
-              if (!docObj.associatedPlanIds.includes(plan.id)) return false;
+              if (!docObj) return false;  // doc not found => exclude
+              if (!docObj.associatedPlanIds.includes(plan.id)) {
+                return false;
+              }
             }
           }
         }
@@ -81,12 +97,12 @@ export default function PlanOptionsPanel({
     setFilteredPlans(sorted);
   }, [userInputs]);
 
-  // Show "Savings" column only if user has a valid old plan
+  // Show "Savings" column if user has old plan
   const showSavings =
     userInputs.currentInsurer !== 'I have no insurer' &&
     userInputs.currentPlan !== '';
 
-  // If user has a valid current plan row, display it at the top
+  // If user has a current plan row, display it
   const hasCurrentPlan = showSavings && currentPremium > 0;
   let currentPlanObj: any = null;
   if (hasCurrentPlan) {
@@ -98,8 +114,7 @@ export default function PlanOptionsPanel({
     );
   }
 
-  // Round to integer
-  function formatNumber(num: number): string {
+  function formatNumber(num: number) {
     return Math.round(num).toString();
   }
 
@@ -142,12 +157,12 @@ export default function PlanOptionsPanel({
           </tr>
         </thead>
         <tbody>
-          {filteredPlans.map((p) => {
+          {filteredPlans.map((plan) => {
             let difference = 0;
             if (showSavings) {
-              difference = p.annualPremium - currentPremium;
+              difference = plan.annualPremium - currentPremium;
             }
-            const planPremiumStr = formatNumber(p.annualPremium);
+            const planPremiumStr = formatNumber(plan.annualPremium);
             const diffStr =
               difference === 0
                 ? ''
@@ -156,9 +171,9 @@ export default function PlanOptionsPanel({
                 : Math.round(difference).toString();
 
             return (
-              <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td>{p.insurer}</td>
-                <td>{p.planName}</td>
+              <tr key={plan.id} style={{ borderBottom: '1px solid #eee' }}>
+                <td>{plan.insurer}</td>
+                <td>{plan.planName}</td>
                 <td>{planPremiumStr}</td>
                 {showSavings && (
                   <td style={{ color: difference < 0 ? 'green' : 'red' }}>
@@ -166,7 +181,7 @@ export default function PlanOptionsPanel({
                   </td>
                 )}
                 <td>
-                  <button onClick={() => onSelectPlan(p)}>Select</button>
+                  <button onClick={() => onSelectPlan(plan)}>Select</button>
                 </td>
               </tr>
             );

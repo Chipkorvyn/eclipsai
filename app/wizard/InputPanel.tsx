@@ -3,7 +3,6 @@
 import React from 'react';
 import plansData from '../../data/plans.json';
 
-/** Return unique insurer names from plans.json */
 function getUniqueInsurers(): string[] {
   const s = new Set<string>();
   (plansData as any[]).forEach((p) => {
@@ -12,7 +11,6 @@ function getUniqueInsurers(): string[] {
   return Array.from(s);
 }
 
-/** Return plan names for a given insurer */
 function getPlansForInsurer(insurer: string): string[] {
   if (insurer === 'I have no insurer') return [];
   const setOfPlans = new Set<string>();
@@ -35,20 +33,20 @@ export default function InputPanel({
     franchise: number;
     currentInsurer: string;
     currentPlan: string;
-    unrestrictedAccess: boolean;     // if true => only TAR-BASE
-    wantsAlternativeModel: boolean;  // if true => only TAR-DIV
-    hasPreferredDoctor: boolean;     // if false => show all "TAR-HAM/TAR-HMO"
-    preferredDoctorName: string;     // typed doc name
+    unrestrictedAccess: boolean;
+
+    wantsTelePharm: boolean;     // if true => TAR-DIV
+    wantsFamilyDocModel: boolean;// if true => TAR-HAM
+    wantsHmoModel: boolean;      // if true => TAR-HMO
+
+    hasPreferredDoctor: boolean;     // doc logic if familyDocModel
+    preferredDoctorName: string;
   };
   setUserInputs: React.Dispatch<React.SetStateAction<any>>;
 }) {
-  // Insurers for the current plan dropdown
   const insurers = getUniqueInsurers();
   const relevantPlans = getPlansForInsurer(userInputs.currentInsurer);
 
-  /**
-   * handleChange: text inputs, selects, checkboxes (except radio for doc)
-   */
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name } = e.target;
     let newValue: string | number | boolean;
@@ -62,7 +60,6 @@ export default function InputPanel({
         newValue = e.target.value;
       }
     } else {
-      // It's a <select>
       if (name === 'franchise') {
         newValue = Number(e.target.value);
       } else {
@@ -77,7 +74,7 @@ export default function InputPanel({
   }
 
   /**
-   * handleDoctorRadioChange: toggles hasPreferredDoctor
+   * If user toggles "I have a preferred doc" radio
    */
   function handleDoctorRadioChange(e: React.ChangeEvent<HTMLInputElement>) {
     const isYes = e.target.value === 'yes';
@@ -85,21 +82,6 @@ export default function InputPanel({
       ...prev,
       hasPreferredDoctor: isYes,
       preferredDoctorName: isYes ? prev.preferredDoctorName : ''
-    }));
-  }
-
-  /**
-   * handleAlternativeChange: toggles wantsAlternativeModel (yes/no)
-   * If yes => skip doc question
-   */
-  function handleAlternativeChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const isYes = e.target.value === 'yes';
-    setUserInputs((prev) => ({
-      ...prev,
-      wantsAlternativeModel: isYes,
-      // If user picks yes => doc question becomes irrelevant -> reset doc fields
-      hasPreferredDoctor: isYes ? false : prev.hasPreferredDoctor,
-      preferredDoctorName: isYes ? '' : prev.preferredDoctorName
     }));
   }
 
@@ -146,7 +128,6 @@ export default function InputPanel({
       </select>
       <br />
 
-      {/* Current Insurer + Plan for "my current plan" */}
       <label>Current Insurer:</label>
       <select
         name="currentInsurer"
@@ -174,7 +155,7 @@ export default function InputPanel({
       </select>
       <br />
 
-      {/* If true => only planType='TAR-BASE' in PlanOptionsPanel */}
+      {/* Unrestricted => only TAR-BASE */}
       <label>
         <input
           type="checkbox"
@@ -182,74 +163,88 @@ export default function InputPanel({
           checked={userInputs.unrestrictedAccess}
           onChange={handleChange}
         />
-        Unrestricted Access (TAR-BASE only)
+        Unrestricted Access (TAR-BASE)
       </label>
       <br />
 
-      {/* If unrestrictedAccess = false => we show alternative model radio */}
+      {/* If not unrestricted => show three toggles for telePharm, family, hmo */}
       {!userInputs.unrestrictedAccess && (
         <div style={{ marginTop: '1rem' }}>
-          <p>Interested in an alternative model (telemedicine, pharmacy) - highest savings but most restrictions?</p>
+          <p>In the restricted model, pick which plan types to include:</p>
+
+          {/* 1) Telemedicine/Pharmacy => TAR-DIV */}
           <label>
             <input
-              type="radio"
-              name="wantsAlternativeModel"
-              value="no"
-              checked={!userInputs.wantsAlternativeModel}
-              onChange={handleAlternativeChange}
+              type="checkbox"
+              name="wantsTelePharm"
+              checked={userInputs.wantsTelePharm}
+              onChange={handleChange}
             />
-            No (show TAR-HAM / TAR-HMO)
+            Interested in an alternative model (telemedicine, pharmacy) - TAR-DIV
           </label>
           <br />
-          <label>
-            <input
-              type="radio"
-              name="wantsAlternativeModel"
-              value="yes"
-              checked={userInputs.wantsAlternativeModel}
-              onChange={handleAlternativeChange}
-            />
-            Yes (show TAR-DIV only)
-          </label>
-        </div>
-      )}
 
-      {/* Only show doc question if unrestricted=false AND wantsAlternativeModel=false */}
-      {(!userInputs.unrestrictedAccess && !userInputs.wantsAlternativeModel) && (
-        <div style={{ marginTop: '1rem' }}>
-          <p>Do you have a preferred family doctor?</p>
+          {/* 2) Family doctor => TAR-HAM */}
           <label>
             <input
-              type="radio"
-              name="hasPreferredDoctor"
-              value="no"
-              checked={!userInputs.hasPreferredDoctor}
-              onChange={handleDoctorRadioChange}
+              type="checkbox"
+              name="wantsFamilyDocModel"
+              checked={userInputs.wantsFamilyDocModel}
+              onChange={handleChange}
             />
-            I'm open to any provider
-          </label>
-          <br />
-          <label>
-            <input
-              type="radio"
-              name="hasPreferredDoctor"
-              value="yes"
-              checked={userInputs.hasPreferredDoctor}
-              onChange={handleDoctorRadioChange}
-            />
-            I have a preferred doctor
+            Considering a family doctor model (TAR-HAM)
           </label>
 
-          {userInputs.hasPreferredDoctor && (
-            <div>
-              <label>Please enter your doctor's name:</label>
-              <input
-                name="preferredDoctorName"
-                value={userInputs.preferredDoctorName}
-                onChange={handleChange}
-              />
+          {/* If wantsFamilyDocModel => show doc question */}
+          {userInputs.wantsFamilyDocModel && (
+            <div style={{ marginLeft: '1rem' }}>
+              <p>Do you have a preferred doctor?</p>
+              <label>
+                <input
+                  type="radio"
+                  name="hasPreferredDoctor"
+                  value="no"
+                  checked={!userInputs.hasPreferredDoctor}
+                  onChange={handleDoctorRadioChange}
+                />
+                I'm open to any provider
+              </label>
+              <br />
+              <label>
+                <input
+                  type="radio"
+                  name="hasPreferredDoctor"
+                  value="yes"
+                  checked={userInputs.hasPreferredDoctor}
+                  onChange={handleDoctorRadioChange}
+                />
+                I have a preferred doctor
+              </label>
+
+              {userInputs.hasPreferredDoctor && (
+                <div>
+                  <label>Please enter your doctor's name:</label>
+                  <input
+                    name="preferredDoctorName"
+                    value={userInputs.preferredDoctorName}
+                    onChange={handleChange}
+                  />
+                </div>
+              )}
             </div>
           )}
+          <br />
+
+          {/* 3) HMO => TAR-HMO */}
+          <label>
+            <input
+              type="checkbox"
+              name="wantsHmoModel"
+              checked={userInputs.wantsHmoModel}
+              onChange={handleChange}
+            />
+            Considering an HMO model (TAR-HMO)
+          </label>
         </div>
       )}
     </div>
