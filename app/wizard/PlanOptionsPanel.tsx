@@ -2,18 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import plansData from '../../data/plans.json';
-
-/**
- * Plan structure assumption:
- * {
- *   "id": 1,
- *   "insurer": "Insurer A",
- *   "planName": "Model A 300",
- *   "franchise": 300,
- *   "annualPremium": 4200,
- *   "planType": "TAR-BASE" // or TAR-DIV, TAR-HAM, TAR-HMO
- * }
- */
+import doctorsData from '../../data/doctors.json';  // new file for doctor associations
 
 export default function PlanOptionsPanel({
   userInputs,
@@ -24,6 +13,8 @@ export default function PlanOptionsPanel({
     currentInsurer: string;
     currentPlan: string;
     unrestrictedAccess: boolean;
+    hasPreferredDoctor: boolean;
+    preferredDoctorName: string;
   };
   onSelectPlan: (plan: any) => void;
 }) {
@@ -31,79 +22,98 @@ export default function PlanOptionsPanel({
   const [currentPremium, setCurrentPremium] = useState<number>(0);
 
   useEffect(() => {
-    // 1) Calculate current premium if user chose a plan
+    // 1) Determine the user's current plan premium if they selected insurer+plan+franchise
     let premium = 0;
-    if (userInputs.currentInsurer !== 'I have no insurer' && userInputs.currentPlan) {
+    if (
+      userInputs.currentInsurer !== 'I have no insurer' &&
+      userInputs.currentPlan !== ''
+    ) {
       const found = (plansData as any[]).find(
         (p) =>
           p.insurer === userInputs.currentInsurer &&
-          p.planName === userInputs.currentPlan
+          p.planName === userInputs.currentPlan &&
+          Number(p.franchise) === userInputs.franchise
       );
       premium = found ? found.annualPremium : 0;
     }
     setCurrentPremium(premium);
 
-    // 2) Filter logic
+    // 2) Filter new plans
     const results = (plansData as any[]).filter((plan) => {
-      // Must match the user's selected franchise
+      // Must match user’s chosen franchise
       if (Number(plan.franchise) !== userInputs.franchise) return false;
 
-      // If 'unrestrictedAccess' is true => only show planType='TAR-BASE'
+      // If userInputs.unrestrictedAccess => only planType='TAR-BASE'
       if (userInputs.unrestrictedAccess) {
         if (plan.planType !== 'TAR-BASE') return false;
+      } else {
+        // If restricted => check doctor preference
+        if (userInputs.hasPreferredDoctor) {
+          // If doc name is blank, no filter => user sees all
+          if (userInputs.preferredDoctorName.trim() !== '') {
+            // find doctor in doctorsData
+            const docObj = (doctorsData as any[]).find(
+              (d) =>
+                d.doctorName.toLowerCase() === userInputs.preferredDoctorName.trim().toLowerCase()
+            );
+            // if doc not found => no plan
+            if (!docObj) return false;
+            // if plan.id not in docObj.associatedPlanIds => exclude
+            if (!docObj.associatedPlanIds.includes(plan.id)) return false;
+          }
+        }
       }
-      // else show all plan types (TAR-DIV, TAR-HAM, TAR-HMO, TAR-BASE, etc.)
 
       return true;
     });
 
     // 3) Sort ascending by annualPremium
     const sorted = results.sort((a, b) => a.annualPremium - b.annualPremium);
-
     setFilteredPlans(sorted);
   }, [userInputs]);
 
-  // Show the "Savings" column only if user selected an actual plan
+  // Only show "Savings" if user has a valid old plan
   const showSavings =
-    userInputs.currentInsurer !== 'I have no insurer' && userInputs.currentPlan !== '';
+    userInputs.currentInsurer !== 'I have no insurer' &&
+    userInputs.currentPlan !== '';
 
-  // Round any numeric to integer for display
-  function formatNumber(num: number): string {
-    return Math.round(num).toString();
-  }
-
-  // If user selected a plan, we'll show it at the top
+  // If user has a valid current plan, display it at the top
   const hasCurrentPlan = showSavings && currentPremium > 0;
   let currentPlanObj: any = null;
   if (hasCurrentPlan) {
     currentPlanObj = (plansData as any[]).find(
       (p) =>
         p.insurer === userInputs.currentInsurer &&
-        p.planName === userInputs.currentPlan
+        p.planName === userInputs.currentPlan &&
+        Number(p.franchise) === userInputs.franchise
     );
+  }
+
+  // Round any numeric to integer for display
+  function formatNumber(num: number): string {
+    return Math.round(num).toString();
   }
 
   return (
     <div style={{ padding: '1rem' }}>
       <h2>Plan Options</h2>
 
-      {/* 1) If there's a 'current plan' chosen, show it in a single-row table */}
+      {/* Show the user's current plan at the top if found */}
       {hasCurrentPlan && currentPlanObj && (
         <div style={{ marginBottom: '1rem', border: '1px solid #555', padding: '0.5rem' }}>
           <h3>Current Plan</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th style={{ textAlign: 'left' }}>Insurer</th>
-                <th style={{ textAlign: 'left' }}>Plan Name</th>
-                <th style={{ textAlign: 'left' }}>Annual Premium</th>
+                <th>Insurer</th>
+                <th>Plan Name</th>
+                <th>Annual Premium</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td>{currentPlanObj.insurer}</td>
                 <td>{currentPlanObj.planName}</td>
-                {/* round the premium */}
                 <td>{formatNumber(currentPlanObj.annualPremium)}</td>
               </tr>
             </tbody>
@@ -111,39 +121,37 @@ export default function PlanOptionsPanel({
         </div>
       )}
 
-      {/* 2) Show how many plans found */}
       <p>Found {filteredPlans.length} matching plans</p>
 
-      {/* 3) Table of plan options */}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #ccc' }}>
-            <th style={{ textAlign: 'left' }}>Insurer</th>
-            <th style={{ textAlign: 'left' }}>Plan Name</th>
-            <th style={{ textAlign: 'left' }}>Annual Premium</th>
-            {showSavings && <th style={{ textAlign: 'left' }}>Savings</th>}
+            <th>Insurer</th>
+            <th>Plan Name</th>
+            <th>Annual Premium</th>
+            {showSavings && <th>Savings</th>}
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {filteredPlans.map((plan) => {
-            // difference = plan.annualPremium - currentPremium
+          {filteredPlans.map((p) => {
             let difference = 0;
             if (showSavings) {
-              difference = plan.annualPremium - currentPremium;
+              difference = p.annualPremium - currentPremium;
             }
 
-            // Round plan's premium
-            const planPremiumStr = formatNumber(plan.annualPremium);
-
-            // Round the difference too
+            const planPremiumStr = formatNumber(p.annualPremium);
             const diffStr =
-              difference === 0 ? '' : difference > 0 ? `+${Math.round(difference)}` : Math.round(difference).toString();
+              difference === 0
+                ? ''
+                : difference > 0
+                ? `+${Math.round(difference)}`
+                : Math.round(difference).toString();
 
             return (
-              <tr key={plan.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td>{plan.insurer}</td>
-                <td>{plan.planName}</td>
+              <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
+                <td>{p.insurer}</td>
+                <td>{p.planName}</td>
                 <td>{planPremiumStr}</td>
                 {showSavings && (
                   <td style={{ color: difference < 0 ? 'green' : 'red' }}>
@@ -151,7 +159,7 @@ export default function PlanOptionsPanel({
                   </td>
                 )}
                 <td>
-                  <button onClick={() => onSelectPlan(plan)}>Select</button>
+                  <button onClick={() => onSelectPlan(p)}>Select</button>
                 </td>
               </tr>
             );

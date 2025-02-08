@@ -3,7 +3,7 @@
 import React from 'react';
 import plansData from '../../data/plans.json';
 
-/** Extract unique insurer names from plans.json */
+/** Return unique insurer names from plans.json */
 function getUniqueInsurers(): string[] {
   const s = new Set<string>();
   (plansData as any[]).forEach((p) => {
@@ -36,6 +36,8 @@ export default function InputPanel({
     currentInsurer: string;
     currentPlan: string;
     unrestrictedAccess: boolean;
+    hasPreferredDoctor: boolean;
+    preferredDoctorName: string;
   };
   setUserInputs: React.Dispatch<
     React.SetStateAction<{
@@ -46,15 +48,18 @@ export default function InputPanel({
       currentInsurer: string;
       currentPlan: string;
       unrestrictedAccess: boolean;
+      hasPreferredDoctor: boolean;
+      preferredDoctorName: string;
     }>
   >;
 }) {
-  // Gather dropdown data
+  // Insurers for the dropdown
   const insurers = getUniqueInsurers();
+  // Plans relevant to whichever insurer is chosen
   const relevantPlans = getPlansForInsurer(userInputs.currentInsurer);
 
-  /** 
-   * We do a type-narrow to handle 'checked' for checkboxes vs. 'value' for selects/inputs.
+  /**
+   * handleChange: handles text inputs, selects, checkboxes (except for the doctor radio).
    */
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name } = e.target;
@@ -69,7 +74,7 @@ export default function InputPanel({
         newValue = e.target.value;
       }
     } else {
-      // it's a <select>
+      // It's a <select>
       if (name === 'franchise') {
         newValue = Number(e.target.value);
       } else {
@@ -80,6 +85,19 @@ export default function InputPanel({
     setUserInputs((prev) => ({
       ...prev,
       [name]: newValue
+    }));
+  }
+
+  /**
+   * handleDoctorRadioChange: toggles hasPreferredDoctor. 
+   * If user picks “no,” we clear the preferredDoctorName.
+   */
+  function handleDoctorRadioChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const isYes = e.target.value === 'yes';
+    setUserInputs((prev) => ({
+      ...prev,
+      hasPreferredDoctor: isYes,
+      preferredDoctorName: isYes ? prev.preferredDoctorName : '' // clear name if “no”
     }));
   }
 
@@ -153,7 +171,7 @@ export default function InputPanel({
       </select>
       <br />
 
-      {/* Toggle for 'unrestrictedAccess' => if true => only 'TAR-BASE' in plan options */}
+      {/* If user checks -> only planType='TAR-BASE' in PlanOptionsPanel */}
       <label>
         <input
           type="checkbox"
@@ -161,8 +179,48 @@ export default function InputPanel({
           checked={userInputs.unrestrictedAccess}
           onChange={handleChange}
         />
-        Unrestricted Access (Only TAR-BASE)
+        Unrestricted Access (TAR-BASE only)
       </label>
+      <br />
+
+      {/* Family doctor preference only relevant if unrestrictedAccess = false */}
+      {!userInputs.unrestrictedAccess && (
+        <div style={{ marginTop: '1rem' }}>
+          <p>Do you have a preferred family doctor?</p>
+          <label>
+            <input
+              type="radio"
+              name="hasPreferredDoctor"
+              value="no"
+              checked={!userInputs.hasPreferredDoctor}
+              onChange={handleDoctorRadioChange}
+            />
+            I'm open to any provider
+          </label>
+          <br />
+          <label>
+            <input
+              type="radio"
+              name="hasPreferredDoctor"
+              value="yes"
+              checked={userInputs.hasPreferredDoctor}
+              onChange={handleDoctorRadioChange}
+            />
+            I have a preferred doctor
+          </label>
+
+          {userInputs.hasPreferredDoctor && (
+            <div>
+              <label>Please enter your doctor's name:</label>
+              <input
+                name="preferredDoctorName"
+                value={userInputs.preferredDoctorName}
+                onChange={handleChange}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
