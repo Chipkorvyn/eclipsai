@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import plansData from '../../data/plans.json';
-import doctorsData from '../../data/doctors.json';  // new file for doctor associations
+import doctorsData from '../../data/doctors.json';
 
 export default function PlanOptionsPanel({
   userInputs,
@@ -12,8 +12,9 @@ export default function PlanOptionsPanel({
     franchise: number;
     currentInsurer: string;
     currentPlan: string;
-    unrestrictedAccess: boolean;
-    hasPreferredDoctor: boolean;
+    unrestrictedAccess: boolean;      // if true => TAR-BASE only
+    wantsAlternativeModel: boolean;   // if true => TAR-DIV only
+    hasPreferredDoctor: boolean;      // doc preference if alternative=no
     preferredDoctorName: string;
   };
   onSelectPlan: (plan: any) => void;
@@ -22,7 +23,7 @@ export default function PlanOptionsPanel({
   const [currentPremium, setCurrentPremium] = useState<number>(0);
 
   useEffect(() => {
-    // 1) Determine the user's current plan premium if they selected insurer+plan+franchise
+    // 1) Find the user's current plan premium
     let premium = 0;
     if (
       userInputs.currentInsurer !== 'I have no insurer' &&
@@ -38,28 +39,36 @@ export default function PlanOptionsPanel({
     }
     setCurrentPremium(premium);
 
-    // 2) Filter new plans
+    // 2) Filter logic
     const results = (plansData as any[]).filter((plan) => {
-      // Must match user’s chosen franchise
+      // must match franchise
       if (Number(plan.franchise) !== userInputs.franchise) return false;
 
-      // If userInputs.unrestrictedAccess => only planType='TAR-BASE'
+      // if unrestricted => only TAR-BASE
       if (userInputs.unrestrictedAccess) {
         if (plan.planType !== 'TAR-BASE') return false;
       } else {
-        // If restricted => check doctor preference
-        if (userInputs.hasPreferredDoctor) {
-          // If doc name is blank, no filter => user sees all
-          if (userInputs.preferredDoctorName.trim() !== '') {
-            // find doctor in doctorsData
-            const docObj = (doctorsData as any[]).find(
-              (d) =>
-                d.doctorName.toLowerCase() === userInputs.preferredDoctorName.trim().toLowerCase()
-            );
-            // if doc not found => no plan
-            if (!docObj) return false;
-            // if plan.id not in docObj.associatedPlanIds => exclude
-            if (!docObj.associatedPlanIds.includes(plan.id)) return false;
+        // restricted
+        // check wantsAlternativeModel:
+        if (userInputs.wantsAlternativeModel) {
+          // yes => only TAR-DIV
+          if (plan.planType !== 'TAR-DIV') return false;
+        } else {
+          // no => show TAR-HAM / TAR-HMO
+          if (plan.planType !== 'TAR-HAM' && plan.planType !== 'TAR-HMO') {
+            return false;
+          }
+          // now also check doc preference
+          if (userInputs.hasPreferredDoctor) {
+            const docName = userInputs.preferredDoctorName.trim().toLowerCase();
+            if (docName !== '') {
+              // if docName is blank, we skip
+              const docObj = (doctorsData as any[]).find(
+                (d) => d.doctorName.toLowerCase() === docName
+              );
+              if (!docObj) return false; // doc not found => exclude
+              if (!docObj.associatedPlanIds.includes(plan.id)) return false;
+            }
           }
         }
       }
@@ -67,17 +76,17 @@ export default function PlanOptionsPanel({
       return true;
     });
 
-    // 3) Sort ascending by annualPremium
+    // 3) sort ascending by annualPremium
     const sorted = results.sort((a, b) => a.annualPremium - b.annualPremium);
     setFilteredPlans(sorted);
   }, [userInputs]);
 
-  // Only show "Savings" if user has a valid old plan
+  // Show "Savings" column only if user has a valid old plan
   const showSavings =
     userInputs.currentInsurer !== 'I have no insurer' &&
     userInputs.currentPlan !== '';
 
-  // If user has a valid current plan, display it at the top
+  // If user has a valid current plan row, display it at the top
   const hasCurrentPlan = showSavings && currentPremium > 0;
   let currentPlanObj: any = null;
   if (hasCurrentPlan) {
@@ -89,7 +98,7 @@ export default function PlanOptionsPanel({
     );
   }
 
-  // Round any numeric to integer for display
+  // Round to integer
   function formatNumber(num: number): string {
     return Math.round(num).toString();
   }
@@ -98,7 +107,6 @@ export default function PlanOptionsPanel({
     <div style={{ padding: '1rem' }}>
       <h2>Plan Options</h2>
 
-      {/* Show the user's current plan at the top if found */}
       {hasCurrentPlan && currentPlanObj && (
         <div style={{ marginBottom: '1rem', border: '1px solid #555', padding: '0.5rem' }}>
           <h3>Current Plan</h3>
@@ -139,7 +147,6 @@ export default function PlanOptionsPanel({
             if (showSavings) {
               difference = p.annualPremium - currentPremium;
             }
-
             const planPremiumStr = formatNumber(p.annualPremium);
             const diffStr =
               difference === 0
