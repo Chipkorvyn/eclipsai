@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "encoding": "^0.1.13",
     "next": "13.4.9",
     "openai": "^4.83.0",
     "react": "18.2.0",
