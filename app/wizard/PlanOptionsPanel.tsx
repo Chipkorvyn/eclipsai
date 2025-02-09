@@ -3,31 +3,35 @@
 import React, { useEffect, useState } from 'react';
 import plansData from '../../data/plans.json';
 import doctorsData from '../../data/doctors.json';
+import planDetails from '../../data/planDetails.json'; // NEW import for extended info
 
 export default function PlanOptionsPanel({
   userInputs,
-  onSelectPlan
+  onSelectPlan,
+  onOpenCompare // callback to open compare modal
 }: {
   userInputs: {
     franchise: number;
     currentInsurer: string;
     currentPlan: string;
     unrestrictedAccess: boolean;
-
-    wantsTelePharm: boolean;     // => include TAR-DIV
-    wantsFamilyDocModel: boolean;// => include TAR-HAM
-    wantsHmoModel: boolean;      // => include TAR-HMO
-
+    wantsTelePharm: boolean;
+    wantsFamilyDocModel: boolean;
+    wantsHmoModel: boolean;
     hasPreferredDoctor: boolean;
     preferredDoctorName: string;
   };
   onSelectPlan: (plan: any) => void;
+  onOpenCompare: (compareList: any[]) => void; // pass selected plans upwards
 }) {
   const [filteredPlans, setFilteredPlans] = useState<any[]>([]);
   const [currentPremium, setCurrentPremium] = useState<number>(0);
 
+  // This state tracks which plans are toggled for comparison
+  const [comparePlans, setComparePlans] = useState<any[]>([]);
+
   useEffect(() => {
-    // 1) Find user's current plan premium
+    // 1) find user’s current plan premium
     let premium = 0;
     if (
       userInputs.currentInsurer !== 'I have no insurer' &&
@@ -43,19 +47,14 @@ export default function PlanOptionsPanel({
     }
     setCurrentPremium(premium);
 
-    // 2) Filter logic
+    // 2) filter logic
     const results = (plansData as any[]).filter((plan) => {
-      // Must match franchise
       if (Number(plan.franchise) !== userInputs.franchise) return false;
 
-      // If unrestricted => only TAR-BASE
       if (userInputs.unrestrictedAccess) {
         if (plan.planType !== 'TAR-BASE') return false;
       } else {
-        // restricted scenario
-        // user might pick multiple toggles: telePharm, familyDocModel, hmo
-
-        // if user picks NO toggles => no plan => we check each
+        // restricted
         let planTypeOk = false;
 
         if (userInputs.wantsTelePharm && plan.planType === 'TAR-DIV') {
@@ -67,23 +66,18 @@ export default function PlanOptionsPanel({
         if (userInputs.wantsHmoModel && plan.planType === 'TAR-HMO') {
           planTypeOk = true;
         }
-
-        // If none toggles are on => planTypeOk remains false => exclude
         if (!planTypeOk) return false;
 
-        // Now doc preference only if user selects familyDocModel 
+        // doc preference
         if (userInputs.wantsFamilyDocModel) {
           if (userInputs.hasPreferredDoctor) {
             const docName = userInputs.preferredDoctorName.trim().toLowerCase();
             if (docName !== '') {
-              // find doc in doctorsData
               const docObj = (doctorsData as any[]).find(
                 (d) => d.doctorName.toLowerCase() === docName
               );
-              if (!docObj) return false;  // doc not found => exclude
-              if (!docObj.associatedPlanIds.includes(plan.id)) {
-                return false;
-              }
+              if (!docObj) return false;
+              if (!docObj.associatedPlanIds.includes(plan.id)) return false;
             }
           }
         }
@@ -92,17 +86,16 @@ export default function PlanOptionsPanel({
       return true;
     });
 
-    // 3) sort ascending by annualPremium
     const sorted = results.sort((a, b) => a.annualPremium - b.annualPremium);
     setFilteredPlans(sorted);
   }, [userInputs]);
 
-  // Show "Savings" column if user has old plan
+  // show savings?
   const showSavings =
     userInputs.currentInsurer !== 'I have no insurer' &&
     userInputs.currentPlan !== '';
 
-  // If user has a current plan row, display it
+  // current plan row
   const hasCurrentPlan = showSavings && currentPremium > 0;
   let currentPlanObj: any = null;
   if (hasCurrentPlan) {
@@ -114,33 +107,48 @@ export default function PlanOptionsPanel({
     );
   }
 
+  // handle compare toggles
+  function toggleCompare(plan: any) {
+    setComparePlans((prev) => {
+      const exists = prev.findIndex((p) => p.id === plan.id);
+      if (exists >= 0) {
+        // remove it
+        return prev.filter((p, idx) => idx !== exists);
+      } else {
+        // add it
+        return [...prev, plan];
+      }
+    });
+  }
+
+  // open the compare modal, pass the selected plans
+  function handleOpenCompare() {
+    onOpenCompare(comparePlans);
+  }
+
   function formatNumber(num: number) {
     return Math.round(num).toString();
+  }
+
+  // to retrieve extended details if needed:
+  function getExtendedDescription(planId: number) {
+    const detailEntry = (planDetails as any[]).find((d) => d.id === planId);
+    if (!detailEntry) return '';
+    return detailEntry.extendedDescription;
   }
 
   return (
     <div style={{ padding: '1rem' }}>
       <h2>Plan Options</h2>
+      {/* Link to open compare: show count of selected plans */}
+      <button onClick={handleOpenCompare} disabled={comparePlans.length === 0}>
+        Compare {comparePlans.length} Plans
+      </button>
 
       {hasCurrentPlan && currentPlanObj && (
         <div style={{ marginBottom: '1rem', border: '1px solid #555', padding: '0.5rem' }}>
           <h3>Current Plan</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th>Insurer</th>
-                <th>Plan Name</th>
-                <th>Annual Premium</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>{currentPlanObj.insurer}</td>
-                <td>{currentPlanObj.planName}</td>
-                <td>{formatNumber(currentPlanObj.annualPremium)}</td>
-              </tr>
-            </tbody>
-          </table>
+          <p>Insurer: {currentPlanObj.insurer}, Name: {currentPlanObj.planName}, Premium: {formatNumber(currentPlanObj.annualPremium)}</p>
         </div>
       )}
 
@@ -149,6 +157,7 @@ export default function PlanOptionsPanel({
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #ccc' }}>
+            <th>Compare</th>
             <th>Insurer</th>
             <th>Plan Name</th>
             <th>Annual Premium</th>
@@ -157,12 +166,11 @@ export default function PlanOptionsPanel({
           </tr>
         </thead>
         <tbody>
-          {filteredPlans.map((plan) => {
+          {filteredPlans.map((p) => {
             let difference = 0;
             if (showSavings) {
-              difference = plan.annualPremium - currentPremium;
+              difference = p.annualPremium - currentPremium;
             }
-            const planPremiumStr = formatNumber(plan.annualPremium);
             const diffStr =
               difference === 0
                 ? ''
@@ -170,18 +178,28 @@ export default function PlanOptionsPanel({
                 ? `+${Math.round(difference)}`
                 : Math.round(difference).toString();
 
+            // check if plan is in compare array
+            const isSelected = comparePlans.some((cp) => cp.id === p.id);
+
             return (
-              <tr key={plan.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td>{plan.insurer}</td>
-                <td>{plan.planName}</td>
-                <td>{planPremiumStr}</td>
+              <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleCompare(p)}
+                  />
+                </td>
+                <td>{p.insurer}</td>
+                <td>{p.planName}</td>
+                <td>{formatNumber(p.annualPremium)}</td>
                 {showSavings && (
                   <td style={{ color: difference < 0 ? 'green' : 'red' }}>
                     {diffStr}
                   </td>
                 )}
                 <td>
-                  <button onClick={() => onSelectPlan(plan)}>Select</button>
+                  <button onClick={() => onSelectPlan(p)}>Select</button>
                 </td>
               </tr>
             );
