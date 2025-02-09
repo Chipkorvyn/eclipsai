@@ -5,6 +5,7 @@ import InputPanel from './InputPanel';
 import PlanOptionsPanel from './PlanOptionsPanel';
 import PlanDetailsPanel from './PlanDetailsPanel';
 import CompareModal from './CompareModal';
+import ChatBox from './ChatBox';
 
 export default function DemoPage() {
   const [userInputs, setUserInputs] = useState({
@@ -24,21 +25,11 @@ export default function DemoPage() {
 
   const [activePlan, setActivePlan] = useState<any>(null);
 
-  // For the compare modal
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [compareList, setCompareList] = useState<any[]>([]);
 
-  // "Automated pilot" toggle in top-right corner
-  const [autoPilot, setAutoPilot] = useState(false);
-
-  // Check if basic info is complete
-  const infoComplete =
-    userInputs.name.trim() !== '' &&
-    userInputs.postalCode.trim() !== '' &&
-    userInputs.yearOfBirth.trim() !== '';
-
-  function handleOpenCompare(comparePlans: any[]) {
-    setCompareList(comparePlans);
+  function handleOpenCompare(list: any[]) {
+    setCompareList(list);
     setShowCompareModal(true);
   }
 
@@ -47,50 +38,91 @@ export default function DemoPage() {
   }
 
   return (
-    <>
-      {/* A small top-right bar for the automated pilot toggle */}
+    <div style={{ fontFamily: "'Open Sans', sans-serif", minHeight: '100vh', margin: 0 }}>
+      {/* Blue banner header */}
       <div style={{
-        position: 'fixed',
-        top: '10px',
-        right: '10px',
-        background: '#fff',
-        border: '1px solid #ccc',
-        padding: '0.5rem',
-        zIndex: 999
+        background: '#2F62F4',
+        color: '#fff',
+        padding: '2rem',
+        textAlign: 'center'
       }}>
-        <label style={{ marginRight: '0.5rem' }}>
-          Automated Pilot
-        </label>
-        <input
-          type="checkbox"
-          checked={autoPilot}
-          onChange={(e) => setAutoPilot(e.target.checked)}
-        />
+        <h1 style={{ margin: 0, fontSize: '2rem' }}>
+          Overpaying for Mandatory Swiss Health Insurance?
+        </h1>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
-        <div style={{ flex: '1', borderRight: '1px solid #ccc' }}>
-          <InputPanel userInputs={userInputs} setUserInputs={setUserInputs} />
+      {/* Main 3-column layout */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'row',
+        gap: '1rem',
+        padding: '1rem'
+      }}>
+        {/* LEFT PANEL: split vertically between input (top) & chat (bottom) */}
+        <div
+          style={{
+            flex: 1,
+            background: '#fff',
+            borderRadius: '6px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+
+            /* Key part: use flex column so top can scroll, bottom is fixed. */
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          {/* Scrollable top area for inputs */}
+          <div
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '1rem'
+            }}
+          >
+            <InputPanel userInputs={userInputs} setUserInputs={setUserInputs} />
+          </div>
+
+          {/* Bottom chat area: fixed 180px height */}
+          <div
+            style={{
+              flexShrink: 0,
+              height: '180px',
+              borderTop: '1px solid #ccc',
+              position: 'relative'
+            }}
+          >
+            <ChatBox />
+          </div>
         </div>
 
-        <div style={{ flex: '1', borderRight: '1px solid #ccc' }}>
-          {infoComplete ? (
-            <PlanOptionsPanel
-              userInputs={userInputs}
-              onSelectPlan={(plan) => setActivePlan(plan)}
-              onOpenCompare={handleOpenCompare}
-            />
-          ) : (
-            <div style={{ padding: '1rem' }}>
-              <h2>No Plan Options Yet</h2>
-              <p>Please fill out Name, Postal Code, and Year of Birth.</p>
-            </div>
-          )}
+        {/* MIDDLE PANEL: Plan Options */}
+        <div
+          style={{
+            flex: 1,
+            background: '#fff',
+            borderRadius: '6px',
+            padding: '1rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+          }}
+        >
+          <PlanOptionsPanel
+            userInputs={userInputs}
+            onSelectPlan={(plan) => setActivePlan(plan)}
+            onOpenCompare={handleOpenCompare}
+          />
         </div>
 
-        <div style={{ flex: '1' }}>
-          {/* We pass autoPilot as a prop if we want PlanDetailsPanel to know the current autopilot state */}
-          <PlanDetailsPanel plan={activePlan} autoPilot={autoPilot} />
+        {/* RIGHT PANEL: Plan Details */}
+        <div
+          style={{
+            flex: 1,
+            background: '#fff',
+            borderRadius: '6px',
+            padding: '1rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+          }}
+        >
+          <PlanDetailsPanel plan={activePlan} />
         </div>
       </div>
 
@@ -99,6 +131,6 @@ export default function DemoPage() {
         onClose={handleCloseCompare}
         compareList={compareList}
       />
-    </>
+    </div>
   );
 }

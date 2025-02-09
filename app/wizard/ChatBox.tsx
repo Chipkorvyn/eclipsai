@@ -12,7 +12,7 @@ export default function ChatBox() {
     setMessages((prev) => [...prev, { role: 'user', content: userQuestion }]);
     setInput('');
 
-    // Call /api/chat
+    // Example call
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -30,32 +30,38 @@ export default function ChatBox() {
       const data = await res.json();
       setMessages((prev) => [...prev, { role: 'assistant', content: data.answer }]);
     } catch (err) {
-      console.error('Error calling /api/chat:', err);
-      setMessages((prev) => [...prev, { role: 'assistant', content: 'Network error. Try again.' }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'Network error. Try again.' }
+      ]);
     }
   }
 
   return (
-    <div style={{
-      position: 'absolute', // we will absolutely position it at bottom
-      bottom: 0,
-      left: 0,
-      right: 0,
-      background: '#f8f8f8',
-      borderTop: '1px solid #ccc',
-      padding: '0.5rem',
-      fontSize: '14px'
-    }}>
-      <div style={{ maxHeight: '120px', overflowY: 'auto', marginBottom: '0.5rem' }}>
+    <div
+      style={{
+        /* Just fill parent container which is 180px high */
+        width: '100%',
+        height: '100%',
+        background: '#f8f8f8',
+        display: 'flex',
+        flexDirection: 'column',
+        fontSize: '14px'
+      }}
+    >
+      {/* Message area */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem' }}>
         {messages.map((m, i) => (
           <div key={i} style={{ margin: '0.25rem 0' }}>
             <strong>{m.role === 'user' ? 'You' : 'Chatbot'}:</strong> {m.content}
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
+
+      {/* Input area */}
+      <div style={{ display: 'flex', gap: '0.5rem', borderTop: '1px solid #ccc', padding: '0.5rem' }}>
         <input
-          style={{ flex: '1', padding: '0.25rem' }}
+          style={{ flex: 1, padding: '0.25rem' }}
           placeholder="Ask about Swiss mandatory health insurance..."
           value={input}
           onChange={(e) => setInput(e.target.value)}

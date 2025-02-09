@@ -3,203 +3,178 @@
 import React, { useEffect, useState } from 'react';
 import plansData from '../../data/plans.json';
 import doctorsData from '../../data/doctors.json';
-import planDetails from '../../data/planDetails.json'; // NEW import for extended info
 
 export default function PlanOptionsPanel({
   userInputs,
   onSelectPlan,
-  onOpenCompare // callback to open compare modal
+  onOpenCompare
 }: {
   userInputs: {
     franchise: number;
-    currentInsurer: string;
-    currentPlan: string;
     unrestrictedAccess: boolean;
     wantsTelePharm: boolean;
     wantsFamilyDocModel: boolean;
     wantsHmoModel: boolean;
     hasPreferredDoctor: boolean;
     preferredDoctorName: string;
+    currentInsurer: string;
+    currentPlan: string;
   };
   onSelectPlan: (plan: any) => void;
-  onOpenCompare: (compareList: any[]) => void; // pass selected plans upwards
+  onOpenCompare: (compareList: any[]) => void;
 }) {
   const [filteredPlans, setFilteredPlans] = useState<any[]>([]);
-  const [currentPremium, setCurrentPremium] = useState<number>(0);
-
-  // This state tracks which plans are toggled for comparison
   const [comparePlans, setComparePlans] = useState<any[]>([]);
+  const [currentPremium, setCurrentPremium] = useState<number | null>(null);
 
   useEffect(() => {
-    // 1) find user’s current plan premium
-    let premium = 0;
-    if (
-      userInputs.currentInsurer !== 'I have no insurer' &&
-      userInputs.currentPlan !== ''
-    ) {
-      const found = (plansData as any[]).find(
+    // Filter by franchise
+    let results = (plansData as any[]).filter(
+      (p) => Number(p.franchise) === userInputs.franchise
+    );
+
+    // find current plan in results
+    let foundCurrent = null;
+    if (userInputs.currentInsurer !== 'I have no insurer' && userInputs.currentPlan !== '') {
+      foundCurrent = results.find(
         (p) =>
           p.insurer === userInputs.currentInsurer &&
           p.planName === userInputs.currentPlan &&
           Number(p.franchise) === userInputs.franchise
       );
-      premium = found ? found.annualPremium : 0;
     }
-    setCurrentPremium(premium);
+    setCurrentPremium(foundCurrent ? foundCurrent.annualPremium : null);
 
-    // 2) filter logic
-    const results = (plansData as any[]).filter((plan) => {
-      if (Number(plan.franchise) !== userInputs.franchise) return false;
+    // if unrestricted => only TAR-BASE
+    if (userInputs.unrestrictedAccess) {
+      results = results.filter((p) => p.planType === 'TAR-BASE');
+    } else {
+      // restricted
+      const allowed: string[] = [];
+      if (userInputs.wantsTelePharm) allowed.push('TAR-DIV');
+      if (userInputs.wantsFamilyDocModel) allowed.push('TAR-HAM');
+      if (userInputs.wantsHmoModel) allowed.push('TAR-HMO');
 
-      if (userInputs.unrestrictedAccess) {
-        if (plan.planType !== 'TAR-BASE') return false;
+      if (allowed.length === 0) {
+        results = [];
       } else {
-        // restricted
-        let planTypeOk = false;
+        results = results.filter((p) => allowed.includes(p.planType));
+      }
 
-        if (userInputs.wantsTelePharm && plan.planType === 'TAR-DIV') {
-          planTypeOk = true;
-        }
-        if (userInputs.wantsFamilyDocModel && plan.planType === 'TAR-HAM') {
-          planTypeOk = true;
-        }
-        if (userInputs.wantsHmoModel && plan.planType === 'TAR-HMO') {
-          planTypeOk = true;
-        }
-        if (!planTypeOk) return false;
-
-        // doc preference
-        if (userInputs.wantsFamilyDocModel) {
-          if (userInputs.hasPreferredDoctor) {
-            const docName = userInputs.preferredDoctorName.trim().toLowerCase();
-            if (docName !== '') {
-              const docObj = (doctorsData as any[]).find(
-                (d) => d.doctorName.toLowerCase() === docName
-              );
-              if (!docObj) return false;
-              if (!docObj.associatedPlanIds.includes(plan.id)) return false;
-            }
+      // doc check
+      if (userInputs.wantsFamilyDocModel && userInputs.hasPreferredDoctor) {
+        const docName = userInputs.preferredDoctorName.trim().toLowerCase();
+        if (docName) {
+          const docObj = (doctorsData as any[]).find(
+            (d) => d.doctorName.toLowerCase() === docName
+          );
+          if (!docObj) {
+            results = [];
+          } else {
+            results = results.filter((p) => docObj.associatedPlanIds.includes(p.id));
           }
         }
       }
+    }
 
-      return true;
-    });
-
-    const sorted = results.sort((a, b) => a.annualPremium - b.annualPremium);
-    setFilteredPlans(sorted);
+    results.sort((a, b) => a.annualPremium - b.annualPremium);
+    setFilteredPlans(results);
   }, [userInputs]);
 
-  // show savings?
-  const showSavings =
-    userInputs.currentInsurer !== 'I have no insurer' &&
-    userInputs.currentPlan !== '';
-
-  // current plan row
-  const hasCurrentPlan = showSavings && currentPremium > 0;
-  let currentPlanObj: any = null;
-  if (hasCurrentPlan) {
-    currentPlanObj = (plansData as any[]).find(
-      (p) =>
-        p.insurer === userInputs.currentInsurer &&
-        p.planName === userInputs.currentPlan &&
-        Number(p.franchise) === userInputs.franchise
-    );
-  }
-
-  // handle compare toggles
   function toggleCompare(plan: any) {
     setComparePlans((prev) => {
-      const exists = prev.findIndex((p) => p.id === plan.id);
-      if (exists >= 0) {
-        // remove it
-        return prev.filter((p, idx) => idx !== exists);
-      } else {
-        // add it
-        return [...prev, plan];
-      }
+      const idx = prev.findIndex((x) => x.id === plan.id);
+      if (idx >= 0) return prev.filter((_, i) => i !== idx);
+      return [...prev, plan];
     });
   }
 
-  // open the compare modal, pass the selected plans
   function handleOpenCompare() {
     onOpenCompare(comparePlans);
   }
 
-  function formatNumber(num: number) {
-    return Math.round(num).toString();
+  // current plan box
+  let currentPlanBox = null;
+  if (currentPremium !== null) {
+    currentPlanBox = (
+      <div style={currentPlanStyle}>
+        <h3 style={{ margin: '0 0 0.5rem 0' }}>Your Current Plan</h3>
+        <p style={{ margin: 0 }}>
+          <strong>Provider:</strong> {userInputs.currentInsurer}
+        </p>
+        <p style={{ margin: 0 }}>
+          <strong>Plan:</strong> {userInputs.currentPlan}
+        </p>
+        <p style={{ margin: 0 }}>
+          <strong>Annual Premium:</strong> {Math.round(currentPremium)} CHF
+        </p>
+      </div>
+    );
   }
 
-  // to retrieve extended details if needed:
-  function getExtendedDescription(planId: number) {
-    const detailEntry = (planDetails as any[]).find((d) => d.id === planId);
-    if (!detailEntry) return '';
-    return detailEntry.extendedDescription;
-  }
+  const showSavings = currentPremium !== null;
 
   return (
-    <div style={{ padding: '1rem' }}>
-      <h2>Plan Options</h2>
-      {/* Link to open compare: show count of selected plans */}
-      <button onClick={handleOpenCompare} disabled={comparePlans.length === 0}>
-        Compare {comparePlans.length} Plans
+    <div style={{ fontFamily: "'Open Sans', sans-serif" }}>
+      <h2 style={{ marginBottom: '0.5rem' }}>Plan Choices</h2>
+
+      {currentPlanBox}
+
+      <button
+        style={compareBtnStyle}
+        onClick={handleOpenCompare}
+        disabled={comparePlans.length === 0}
+      >
+        Compare Selected Plans ({comparePlans.length})
       </button>
 
-      {hasCurrentPlan && currentPlanObj && (
-        <div style={{ marginBottom: '1rem', border: '1px solid #555', padding: '0.5rem' }}>
-          <h3>Current Plan</h3>
-          <p>Insurer: {currentPlanObj.insurer}, Name: {currentPlanObj.planName}, Premium: {formatNumber(currentPlanObj.annualPremium)}</p>
-        </div>
-      )}
+      <p style={{ marginTop: '1rem' }}>
+        Found <strong>{filteredPlans.length}</strong> matching plans
+      </p>
 
-      <p>Found {filteredPlans.length} matching plans</p>
-
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem' }}>
         <thead>
-          <tr style={{ borderBottom: '1px solid #ccc' }}>
-            <th>Compare</th>
-            <th>Insurer</th>
-            <th>Plan Name</th>
-            <th>Annual Premium</th>
-            {showSavings && <th>Savings</th>}
+          <tr style={{ borderBottom: '1px solid #ccc', background: '#fafafa' }}>
+            <th style={thStyle}>Compare</th>
+            <th style={thStyle}>Provider</th>
+            <th style={thStyle}>Plan</th>
+            <th style={thStyle}>Annual Premium (CHF)</th>
+            {showSavings && <th style={thStyle}>Savings</th>}
             <th></th>
           </tr>
         </thead>
         <tbody>
           {filteredPlans.map((p) => {
-            let difference = 0;
-            if (showSavings) {
-              difference = p.annualPremium - currentPremium;
-            }
-            const diffStr =
-              difference === 0
-                ? ''
-                : difference > 0
-                ? `+${Math.round(difference)}`
-                : Math.round(difference).toString();
+            const isSelected = comparePlans.some((c) => c.id === p.id);
 
-            // check if plan is in compare array
-            const isSelected = comparePlans.some((cp) => cp.id === p.id);
+            let diffStr = '';
+            if (showSavings && currentPremium !== null) {
+              const diff = p.annualPremium - currentPremium;
+              if (diff > 0) diffStr = `+${Math.round(diff)}`;
+              else if (diff < 0) diffStr = `${Math.round(diff)}`;
+            }
 
             return (
               <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td>
+                <td style={tdStyle}>
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => toggleCompare(p)}
                   />
                 </td>
-                <td>{p.insurer}</td>
-                <td>{p.planName}</td>
-                <td>{formatNumber(p.annualPremium)}</td>
+                <td style={tdStyle}>{p.insurer}</td>
+                <td style={tdStyle}>{p.planName}</td>
+                <td style={tdStyle}>{Math.round(p.annualPremium)}</td>
                 {showSavings && (
-                  <td style={{ color: difference < 0 ? 'green' : 'red' }}>
+                  <td style={{ color: diffStr.startsWith('-') ? 'green' : 'red', ...tdStyle }}>
                     {diffStr}
                   </td>
                 )}
-                <td>
-                  <button onClick={() => onSelectPlan(p)}>Select</button>
+                <td style={tdStyle}>
+                  <button style={selectBtnStyle} onClick={() => onSelectPlan(p)}>
+                    Select Plan
+                  </button>
                 </td>
               </tr>
             );
@@ -209,3 +184,39 @@ export default function PlanOptionsPanel({
     </div>
   );
 }
+
+const currentPlanStyle: React.CSSProperties = {
+  background: '#fff',
+  border: '1px solid #ccc',
+  borderRadius: '4px',
+  padding: '0.5rem',
+  marginBottom: '1rem'
+};
+
+const compareBtnStyle: React.CSSProperties = {
+  padding: '0.5rem 1rem',
+  background: '#2F62F4',
+  color: '#fff',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer'
+};
+
+const thStyle: React.CSSProperties = {
+  textAlign: 'left',
+  padding: '0.5rem',
+  fontWeight: 'bold'
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: '0.5rem'
+};
+
+const selectBtnStyle: React.CSSProperties = {
+  padding: '0.4rem 0.8rem',
+  background: '#28a745',
+  color: '#fff',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer'
+};

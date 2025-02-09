@@ -13,7 +13,7 @@ export default function CompareModal({
 }) {
   const [reportVisible, setReportVisible] = useState(false);
 
-  if (!show) return null; // don't render if modal not open
+  if (!show) return null;
 
   const overlayStyle: React.CSSProperties = {
     position: 'fixed',
@@ -24,45 +24,64 @@ export default function CompareModal({
     background: 'rgba(0,0,0,0.5)',
     display: 'flex',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    zIndex: 9999
   };
 
   const modalStyle: React.CSSProperties = {
     background: '#fff',
-    padding: '1rem',
+    padding: '1rem 2rem',
     width: '90%',
     maxWidth: '1000px',
-    maxHeight: '90vh',
-    overflowY: 'auto'
+    maxHeight: '80vh',
+    overflowY: 'auto',
+    borderRadius: '6px',
+    fontFamily: "'Open Sans', sans-serif"
   };
 
-  function handleGenerateReport() {
-    // Toggle the static summary text visible
+  function handleGenerateSummary() {
     setReportVisible(true);
   }
-
-  function handleCloseReport() {
+  function handleCloseSummary() {
     setReportVisible(false);
   }
 
   return (
     <div style={overlayStyle} onClick={onClose}>
       <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
-        {/* Title referencing how many we actually selected, purely optional */}
-        <h2>Compare {compareList.length} Plans (Static Demo)</h2>
-        
-        {/* 1) The transposed comparison table (static) */}
-        <hr />
-        <h3>2) Comparison Table (Transposed for Readability)</h3>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem' }}>
+        <button
+          onClick={onClose}
+          style={{
+            float: 'right',
+            background: '#aaa',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '0.4rem 0.8rem',
+            cursor: 'pointer'
+          }}
+        >
+          Close
+        </button>
+
+        <h2 style={{ marginTop: 0 }}>Plan Comparison Table (Transposed for Readability)</h2>
+        <p>You have selected {compareList.length} plans (demo data below).</p>
+
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            marginBottom: '1.5rem'
+          }}
+        >
           <thead>
-            <tr>
-              <th style={headerCellStyle}>&nbsp;</th>
-              <th style={headerCellStyle}>SLKK Grundversicherung</th>
-              <th style={headerCellStyle}>Vivao Sympany FlexHelp 24</th>
-              <th style={headerCellStyle}>Helsana BeneFit PLUS Telmed</th>
-              <th style={headerCellStyle}>CSS Gesundheitspraxis (HMO)</th>
-              <th style={headerCellStyle}>Vivao Sympany Casamed HMO</th>
+            <tr style={{ borderBottom: '1px solid #ccc', background: '#fafafa' }}>
+              <th style={tableHead}>Plan</th>
+              <th style={tableHead}>SLKK Grundversicherung</th>
+              <th style={tableHead}>Vivao Sympany FlexHelp 24</th>
+              <th style={tableHead}>Helsana BeneFit PLUS Telmed</th>
+              <th style={tableHead}>CSS Gesundheitspraxis (HMO)</th>
+              <th style={tableHead}>Vivao Sympany Casamed HMO</th>
             </tr>
           </thead>
           <tbody>
@@ -116,27 +135,131 @@ export default function CompareModal({
             />
             <TableRow
               label="Best For"
-              col1="Those wanting unrestricted choice"
-              col2="Those wanting flexibility + savings"
-              col3="Those comfortable w/ phone-first care"
-              col4="Those who like one main medical center"
-              col5="Budget + coordinated care"
+              col1="Unrestricted choice"
+              col2="Flexibility + savings"
+              col3="Phone-first comfort"
+              col4="One main medical center"
+              col5="Budget & coordinated care"
             />
           </tbody>
         </table>
 
-        {/* 2) Generate Report button + optional close */}
-        <button onClick={handleGenerateReport}>Generate Report</button>
-        <button onClick={onClose} style={{ marginLeft: '1rem' }}>
+        <button
+          onClick={handleGenerateSummary}
+          style={{
+            background: '#2F62F4',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '0.5rem 1rem',
+            cursor: 'pointer',
+            marginRight: '1rem'
+          }}
+        >
+          Generate Summary
+        </button>
+        <button
+          onClick={onClose}
+          style={{
+            background: '#aaa',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '0.4rem 0.8rem',
+            cursor: 'pointer'
+          }}
+        >
           Close
         </button>
 
-        {/* 3) The summary report text if user clicked "Generate Report" */}
         {reportVisible && (
-          <div style={{ marginTop: '1rem', background: '#fafafa', padding: '0.5rem' }}>
-            <SummaryReport />
-            <button onClick={handleCloseReport} style={{ marginTop: '1rem' }}>
-              Hide Report
+          <div style={{ marginTop: '1.5rem', background: '#f9f9f9', padding: '1rem' }}>
+            <h2>Summary Report: Cost Savings from Sanitas Grundversicherung</h2>
+            <h3>Current Plan &amp; Costs</h3>
+            <ul>
+              <li>You are currently paying <strong>CHF 5,192</strong> per year for Sanitas Grundversicherung (Franchise: 2,500).</li>
+              <li>By switching to a more cost-effective plan, you could <strong>save up to CHF 1,050</strong> per year.</li>
+            </ul>
+
+            <h3>Savings Overview</h3>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                marginBottom: '1.5rem'
+              }}
+            >
+              <thead>
+                <tr style={{ background: '#fafafa', borderBottom: '1px solid #ccc' }}>
+                  <th style={tableHead}>Plan</th>
+                  <th style={tableHead}>Annual Cost</th>
+                  <th style={tableHead}>Savings vs. Sanitas</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={tableCell}><strong>SLKK Grundversicherung</strong></td>
+                  <td style={tableCell}>CHF 4,942</td>
+                  <td style={tableCell}>CHF 250</td>
+                </tr>
+                <tr>
+                  <td style={tableCell}><strong>Vivao Sympany FlexHelp 24</strong></td>
+                  <td style={tableCell}>CHF 4,142</td>
+                  <td style={tableCell}><strong>CHF 1,050</strong></td>
+                </tr>
+                <tr>
+                  <td style={tableCell}><strong>Helsana BeneFit PLUS Telmed</strong></td>
+                  <td style={tableCell}>CHF 4,289</td>
+                  <td style={tableCell}>CHF 903</td>
+                </tr>
+                <tr>
+                  <td style={tableCell}><strong>CSS Gesundheitspraxis (HMO)</strong></td>
+                  <td style={tableCell}>CHF 4,500</td>
+                  <td style={tableCell}>CHF 692</td>
+                </tr>
+                <tr>
+                  <td style={tableCell}><strong>Vivao Sympany Casamed HMO</strong></td>
+                  <td style={tableCell}>CHF 4,176</td>
+                  <td style={tableCell}>CHF 1,016</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h4>Best Choices for Maximum Savings</h4>
+            <ul>
+              <li>
+                🔹 <strong>Vivao Sympany FlexHelp 24</strong> – Biggest savings (<strong>CHF 1,050</strong>) with a flexible approach.
+              </li>
+              <li>
+                🔹 <strong>Vivao Sympany Casamed HMO</strong> – <strong>CHF 1,016</strong> saved with a structured HMO approach.
+              </li>
+            </ul>
+
+            <h4>Best for Flexibility &amp; Savings</h4>
+            <p>
+              - If you <strong>want freedom</strong> to choose phone or clinic, <strong>FlexHelp 24</strong> is best.
+              <br />
+              - If you <strong>prefer an HMO practice</strong> and the rules, <strong>Casamed HMO</strong> is cost-effective.
+            </p>
+
+            <h4>Final Recommendation</h4>
+            <p>
+              For <strong>maximum savings</strong> while keeping practical healthcare access, 
+              <strong>Vivao Sympany FlexHelp 24 (CHF 4,142)</strong> or <strong>Casamed HMO (CHF 4,176)</strong> are better than your current Sanitas plan.
+            </p>
+
+            <button
+              onClick={handleCloseSummary}
+              style={{
+                background: '#aaa',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '0.4rem 0.8rem',
+                cursor: 'pointer'
+              }}
+            >
+              Hide Summary
             </button>
           </div>
         )}
@@ -145,7 +268,6 @@ export default function CompareModal({
   );
 }
 
-/** Just a helper row to keep the table code DRY */
 function TableRow({
   label,
   col1,
@@ -161,98 +283,25 @@ function TableRow({
   col4: string;
   col5: string;
 }) {
-  const cellStyle: React.CSSProperties = { borderBottom: '1px solid #eee', padding: '0.5rem' };
   return (
-    <tr>
-      <td style={cellStyle}><strong>{label}</strong></td>
-      <td style={cellStyle}>{col1}</td>
-      <td style={cellStyle}>{col2}</td>
-      <td style={cellStyle}>{col3}</td>
-      <td style={cellStyle}>{col4}</td>
-      <td style={cellStyle}>{col5}</td>
+    <tr style={{ borderBottom: '1px solid #eee' }}>
+      <td style={tableCell}><strong>{label}</strong></td>
+      <td style={tableCell}>{col1}</td>
+      <td style={tableCell}>{col2}</td>
+      <td style={tableCell}>{col3}</td>
+      <td style={tableCell}>{col4}</td>
+      <td style={tableCell}>{col5}</td>
     </tr>
   );
 }
 
-function SummaryReport() {
-  return (
-    <div>
-      <hr />
-      <h3>3) Summary Report: Cost Savings from Sanitas Grundversicherung</h3>
-      <p><strong>Current Plan &amp; Costs</strong></p>
-      <p>
-        - You are currently paying <strong>CHF 5,192</strong> per year for Sanitas Grundversicherung (Franchise: 2,500).
-        <br />
-        - By switching to a more cost-effective plan, you could <strong>save up to CHF 1,050</strong> per year.
-      </p>
-
-      <h4> Savings Overview</h4>
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid #ccc' }}>
-            <th style={headerCellStyle}>Plan</th>
-            <th style={headerCellStyle}>Annual Cost</th>
-            <th style={headerCellStyle}>Savings vs. Sanitas</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style={{ borderBottom: '1px solid #eee' }}>
-            <td>SLKK Grundversicherung</td>
-            <td>CHF 4,942</td>
-            <td>CHF 250</td>
-          </tr>
-          <tr style={{ borderBottom: '1px solid #eee' }}>
-            <td>Vivao Sympany FlexHelp 24</td>
-            <td>CHF 4,142</td>
-            <td><strong>CHF 1,050</strong></td>
-          </tr>
-          <tr style={{ borderBottom: '1px solid #eee' }}>
-            <td>Helsana BeneFit PLUS Telmed</td>
-            <td>CHF 4,289</td>
-            <td>CHF 903</td>
-          </tr>
-          <tr style={{ borderBottom: '1px solid #eee' }}>
-            <td>CSS Gesundheitspraxis (HMO)</td>
-            <td>CHF 4,500</td>
-            <td>CHF 692</td>
-          </tr>
-          <tr>
-            <td>Vivao Sympany Casamed HMO</td>
-            <td>CHF 4,176</td>
-            <td>CHF 1,016</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h4> Best Choices for Maximum Savings</h4>
-      <p>
-        🔹 <strong>Vivao Sympany FlexHelp 24</strong> – Biggest savings (CHF 1,050) with the flexibility to choose
-        between telemedicine or an HMO clinic.
-        <br />
-        🔹 <strong>Vivao Sympany Casamed HMO</strong> – CHF 1,016 saved with a structured, low-cost HMO approach.
-      </p>
-
-      <h4> Best for Flexibility &amp; Savings</h4>
-      <p>
-        - If you <strong>want freedom</strong> to choose between calling a doctor or visiting a clinic,
-        <strong>FlexHelp 24</strong> is best.
-        <br />
-        - If you <strong>prefer a set medical practice</strong> and don’t mind the HMO system,
-        <strong>Casamed HMO</strong> is the lowest-cost structured option.
-      </p>
-
-      <h4>Final Recommendation</h4>
-      <p>
-        For <strong>maximum savings</strong> while maintaining practical healthcare, 
-        <strong>Vivao Sympany FlexHelp 24</strong> (CHF 4,142) or <strong>Casamed HMO</strong> (CHF 4,176)
-        are the best options compared to your current Sanitas plan.
-      </p>
-    </div>
-  );
-}
-
-const headerCellStyle: React.CSSProperties = {
+const tableHead: React.CSSProperties = {
   textAlign: 'left',
-  borderBottom: '1px solid #ccc',
-  padding: '0.5rem'
+  padding: '0.5rem',
+  fontWeight: 'bold'
+};
+
+const tableCell: React.CSSProperties = {
+  padding: '0.5rem',
+  verticalAlign: 'top'
 };
