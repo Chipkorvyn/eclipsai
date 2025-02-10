@@ -34,12 +34,12 @@ export default function SignUpStepsModal({
   return (
     <div style={overlayStyle} onClick={onClose}>
       <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
-        <h2>Next Steps for Switching from Sanitas to {plan?.insurer}</h2>
+        <h2>Next Steps for Switching from Sanitas to {plan?.insurer}</h2>        
         <p><strong>Finalize Your Switch</strong></p>
         <ul>
           <li>✅ Send the Sanitas cancellation letter via registered mail. <button>Send Now</button></li>
           <li>✅ Send the {plan?.insurer} registration form via registered mail. <button>Send Now</button></li>
-          <li>📩 Wait for confirmation from both insurers.</li>
+          <li>📩 You will receive confirmation from both insurers.</li>
         </ul>
 
         <hr />
@@ -54,10 +54,10 @@ export default function SignUpStepsModal({
         <hr />
         <p><strong>Immediate Next Steps</strong></p>
         <ul>
-          <li>🔹 Track your registered mail</li>
+          <li>🔹 Track your confirmation</li>
           <li>🔹 Install the Medgate app</li>
         </ul>
-        <p>This ensures a smooth transition to {plan?.insurer} starting 01.01.20XX. 🚀</p>
+        <p>This ensures a smooth transition to {plan?.insurer} starting 01.01.2026. 🚀</p>
 
         <div style={{ marginTop: '1rem' }}>
           <button onClick={onClose}>Close</button>
