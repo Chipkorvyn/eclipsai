@@ -64,8 +64,8 @@ export default function CompareModal({
           Close
         </button>
 
-        <h2 style={{ marginTop: 0 }}>Plan Comparison Table (Transposed for Readability)</h2>
-        <p>You have selected {compareList.length} plans (demo data below).</p>
+        <h2 style={{ marginTop: 0 }}>Plan Comparison</h2>
+        <p>You have selected {compareList.length} plans.</p>
 
         <table
           style={{
@@ -80,7 +80,7 @@ export default function CompareModal({
               <th style={tableHead}>SLKK Grundversicherung</th>
               <th style={tableHead}>Vivao Sympany FlexHelp 24</th>
               <th style={tableHead}>Helsana BeneFit PLUS Telmed</th>
-              <th style={tableHead}>CSS Gesundheitspraxis (HMO)</th>
+              <th style={tableHead}>CSS Gesundheitspraxis</th>
               <th style={tableHead}>Vivao Sympany Casamed HMO</th>
             </tr>
           </thead>
@@ -90,7 +90,7 @@ export default function CompareModal({
               col1="Free doctor choice"
               col2="Hybrid Telmed + HMO"
               col3="Telemedicine-first"
-              col4="HMO (Assigned Practice)"
+              col4="Family doctor"
               col5="HMO (Assigned Practice)"
             />
             <TableRow
@@ -98,7 +98,7 @@ export default function CompareModal({
               col1="Any doctor/hospital"
               col2="Medgate (Phone) or HMO Clinic"
               col3="Always call Medi24 first"
-              col4="Assigned HMO Practice"
+              col4="Visit your family doctor"
               col5="Assigned HMO Practice"
             />
             <TableRow
@@ -122,7 +122,7 @@ export default function CompareModal({
               col1="Full doctor choice"
               col2="Flexibility, lower premiums"
               col3="24/7 doctor access"
-              col4="One-stop care, cost savings"
+              col4="Familiarity with doctor"
               col5="High savings, Sympany service"
             />
             <TableRow
@@ -130,7 +130,7 @@ export default function CompareModal({
               col1="Fewer digital tools, strict cost reviews"
               col2="Must follow rules, partner clinics full"
               col3="Must call every time, no direct specialist"
-              col4="Limited choice, switching HMO difficult"
+              col4="Always visit family doctor first"
               col5="No flexibility outside HMO"
             />
             <TableRow
@@ -138,7 +138,7 @@ export default function CompareModal({
               col1="Unrestricted choice"
               col2="Flexibility + savings"
               col3="Phone-first comfort"
-              col4="One main medical center"
+              col4="Keep your existing doctor"
               col5="Budget & coordinated care"
             />
           </tbody>
@@ -198,27 +198,27 @@ export default function CompareModal({
               </thead>
               <tbody>
                 <tr>
-                  <td style={tableCell}><strong>SLKK Grundversicherung</strong></td>
+                  <td style={tableCell}><strong>SLKK Grundversicherung - Standard</strong></td>
                   <td style={tableCell}>CHF 4,942</td>
                   <td style={tableCell}>CHF 250</td>
                 </tr>
                 <tr>
-                  <td style={tableCell}><strong>Vivao Sympany FlexHelp 24</strong></td>
+                  <td style={tableCell}><strong>Vivao Sympany FlexHelp 24 - Telemedicine</strong></td>
                   <td style={tableCell}>CHF 4,142</td>
                   <td style={tableCell}><strong>CHF 1,050</strong></td>
                 </tr>
                 <tr>
-                  <td style={tableCell}><strong>Helsana BeneFit PLUS Telmed</strong></td>
+                  <td style={tableCell}><strong>Helsana BeneFit PLUS Telmed - Telemedicine</strong></td>
                   <td style={tableCell}>CHF 4,289</td>
                   <td style={tableCell}>CHF 903</td>
                 </tr>
                 <tr>
-                  <td style={tableCell}><strong>CSS Gesundheitspraxis (HMO)</strong></td>
+                  <td style={tableCell}><strong>CSS Gesundheitspraxis - Family doctor</strong></td>
                   <td style={tableCell}>CHF 4,500</td>
                   <td style={tableCell}>CHF 692</td>
                 </tr>
                 <tr>
-                  <td style={tableCell}><strong>Vivao Sympany Casamed HMO</strong></td>
+                  <td style={tableCell}><strong>Vivao Sympany Casamed - HMO</strong></td>
                   <td style={tableCell}>CHF 4,176</td>
                   <td style={tableCell}>CHF 1,016</td>
                 </tr>
