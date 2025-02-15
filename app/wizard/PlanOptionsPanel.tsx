@@ -3,61 +3,64 @@
 
 import React, { useEffect, useState } from 'react';
 
-export default function PlanOptionsPanel({ userInputs }) {
-  const [planList, setPlanList] = useState([]);
+interface PlanOptionsPanelProps {
+  userInputs: any;
+  onSelectPlan: (plan: any) => void; // add this so TS doesn't complain
+}
+
+export default function PlanOptionsPanel({
+  userInputs,
+  onSelectPlan
+}: PlanOptionsPanelProps) {
+  const [planList, setPlanList] = useState<any[]>([]);
   const [currentMonthly, setCurrentMonthly] = useState<number | null>(null);
 
-  // We check if location + bracket + franchise are set
+  // Must have location + bracket + valid franchise
   const hasMandatory = Boolean(
     userInputs.altersklasse &&
     userInputs.canton &&
     userInputs.region &&
     (
       userInputs.altersklasse === 'AKL-KIN'
-        ? userInputs.franchise >= 0  // kids can have 0..600
-        : userInputs.franchise >= 300 // adults => 300..2500
+        ? userInputs.franchise >= 0 // child can be 0..600
+        : userInputs.franchise >= 300 // adult => 300..2500
     )
   );
 
   useEffect(() => {
-    // If the user hasn't chosen bracket+location+franchise => no data
     if (!hasMandatory) {
       setPlanList([]);
       setCurrentMonthly(null);
       return;
     }
 
-    // 1) Construct the query for /api/premiums
-    const params = new URLSearchParams({
+    // 1) Build /api/premiums query
+    const qs = new URLSearchParams({
       altersklasse: userInputs.altersklasse,
-      franchise: String(userInputs.franchise),
       canton: userInputs.canton,
       region: userInputs.region,
+      franchise: String(userInputs.franchise),
       unfalleinschluss: userInputs.unfalleinschluss || 'MIT-UNF'
     });
-    const url = `/api/premiums?${params.toString()}`;
+    const url = `/api/premiums?${qs.toString()}`;
 
-    // 2) Fetch plan data
+    // 2) fetch data
     fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
       .then((data) => {
-        // Convert each row
         const mapped = data.map((row: any) => ({
           id: row.id,
           insurer: row.insurer_name || '',
-          tarif: row.tarif,  // code
+          tarif: row.tarif, // plan code
           planLabel: row.plan_label || row.tarifbezeichnung || row.tarif,
           monthlyPremium: parseFloat(row.praemie),
         }));
-        // Sort ascending
         mapped.sort((a: any, b: any) => a.monthlyPremium - b.monthlyPremium);
 
-        setPlanList(mapped);
-
-        // 3) Check if user has a current plan => find row
+        // 3) find a row matching currentInsurer + currentPlan
         let foundCurrent = null;
         if (
           userInputs.currentInsurer !== 'I have no insurer' &&
@@ -69,6 +72,8 @@ export default function PlanOptionsPanel({ userInputs }) {
               p.tarif === userInputs.currentPlan
           );
         }
+
+        setPlanList(mapped);
         setCurrentMonthly(foundCurrent ? foundCurrent.monthlyPremium : null);
       })
       .catch((err) => {
@@ -77,21 +82,17 @@ export default function PlanOptionsPanel({ userInputs }) {
         setCurrentMonthly(null);
       });
   }, [
-    // We combine the dependencies:
     hasMandatory,
     userInputs.altersklasse,
-    userInputs.franchise,
     userInputs.canton,
     userInputs.region,
+    userInputs.franchise,
     userInputs.unfalleinschluss,
-
-    // Also track plan + insurer in case user picks a new plan => re-run 
-    // (That means we DO re-fetch if plan changes. If you DON’T want that, remove these.)
+    // also add if you want to re-fetch on plan changes:
     userInputs.currentPlan,
-    userInputs.currentInsurer,
+    userInputs.currentInsurer
   ]);
 
-  // ============== RENDER UI ==============
   if (!hasMandatory) {
     return <p>Please pick location, bracket, and a valid franchise.</p>;
   }
@@ -100,10 +101,11 @@ export default function PlanOptionsPanel({ userInputs }) {
   }
 
   const showSavings = currentMonthly !== null;
+
   let currentPlanBox = null;
   if (showSavings) {
     currentPlanBox = (
-      <div style={{ background: '#f5f5f5', padding: '0.5rem', marginBottom: '1rem' }}>
+      <div style={{ background: '#eef', padding: '0.5rem', marginBottom: '1rem' }}>
         <h4>Your Current Plan</h4>
         <p><strong>Insurer:</strong> {userInputs.currentInsurer}</p>
         <p><strong>Plan Code:</strong> {userInputs.currentPlan}</p>
@@ -125,21 +127,33 @@ export default function PlanOptionsPanel({ userInputs }) {
           </tr>
         </thead>
         <tbody>
-          {planList.map((p: any) => {
+          {planList.map((p) => {
             let diffStr = '';
             if (showSavings && currentMonthly != null) {
               const diff = p.monthlyPremium - currentMonthly;
               diffStr = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
             }
+
             return (
               <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={{ padding: '6px' }}>{p.insurer}</td>
-                <td style={{ padding: '6px' }}>{p.planLabel}</td>
                 <td style={{ padding: '6px' }}>
-                  {p.monthlyPremium.toFixed(2)}
+                  {/* Example usage of onSelectPlan */}
+                  <button
+                    style={{ background: 'none', border: 'none', color: 'blue', cursor: 'pointer' }}
+                    onClick={() => onSelectPlan(p)}
+                  >
+                    {p.planLabel}
+                  </button>
                 </td>
+                <td style={{ padding: '6px' }}>{p.monthlyPremium.toFixed(2)}</td>
                 {showSavings && (
-                  <td style={{ padding: '6px', color: diffStr.startsWith('-') ? 'green' : 'red' }}>
+                  <td
+                    style={{
+                      padding: '6px',
+                      color: diffStr.startsWith('-') ? 'green' : 'red',
+                    }}
+                  >
                     {diffStr}
                   </td>
                 )}

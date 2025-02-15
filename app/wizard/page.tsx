@@ -6,7 +6,6 @@ import InputPanel from './InputPanel';
 import PlanOptionsPanel from './PlanOptionsPanel';
 
 export default function WizardPage() {
-  // Start with yearOfBirth=0, franchise=0 => no plan fetch until user picks real values
   const [userInputs, setUserInputs] = useState({
     yearOfBirth: 0,
     franchise: 0,
@@ -20,8 +19,8 @@ export default function WizardPage() {
     wantsHmoModel: false,
     hasPreferredDoctor: false,
     preferredDoctorName: '',
-    currentInsurer: 'I have no insurer',
     currentInsurerBagCode: '',
+    currentInsurer: 'I have no insurer',
     currentPlan: '',
   });
 
@@ -30,17 +29,21 @@ export default function WizardPage() {
   }
 
   function handleSelectPlan(plan: any) {
-    console.log('Selected plan:', plan);
+    console.log('Selected plan in page.tsx:', plan);
+    // You might do something else here, e.g. open a modal, etc.
   }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Left panel => InputPanel */}
+      {/* Left Panel => InputPanel */}
       <div style={{ width: '300px', borderRight: '1px solid #ccc' }}>
-        <InputPanel userInputs={userInputs} onUserInputsChange={handleUserInputsChange} />
+        <InputPanel
+          userInputs={userInputs}
+          onUserInputsChange={handleUserInputsChange}
+        />
       </div>
 
-      {/* Middle panel => PlanOptionsPanel */}
+      {/* Middle Panel => PlanOptionsPanel */}
       <div style={{ flex: 1, padding: '1rem' }}>
         <PlanOptionsPanel
           userInputs={userInputs}
@@ -48,7 +51,7 @@ export default function WizardPage() {
         />
       </div>
 
-      {/* Right panel placeholder */}
+      {/* Right Panel placeholder */}
       <div style={{ width: '300px', borderLeft: '1px solid #ccc' }}>
         <div style={{ padding: '1rem' }}>Right Panel</div>
       </div>
