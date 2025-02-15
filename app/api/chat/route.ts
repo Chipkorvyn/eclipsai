@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import pool from '../../../lib/db';
+import pool from '@/lib/db';
 
 export async function GET() {
   try {
