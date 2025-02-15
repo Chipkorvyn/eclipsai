@@ -1,6 +1,6 @@
 // app/api/premiums/route.ts
 import { NextResponse } from 'next/server';
-import pool from '../../../lib/db';
+import pool from '@/lib/db';
 
 // Build dynamic WHERE
 function buildWhereClause(params: any) {

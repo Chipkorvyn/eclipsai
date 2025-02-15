@@ -1,6 +1,6 @@
 // app/api/postal/route.ts
 import { NextResponse } from 'next/server';
-import pool from '../../../lib/db'; // adjust the path if needed
+import pool from '@/lib/db'; // adjust the path if needed
 
 export async function GET(request: Request) {
   try {

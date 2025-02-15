@@ -1,11 +1,16 @@
 {
   "compilerOptions": {
+    // Use a baseUrl so relative imports can be replaced by aliases
+    "baseUrl": ".",
+
+    // The path alias:  import stuff from "@/foo" => ./foo
+    "paths": {
+      "@/*": ["*"]
+    },
+
+    // The rest of your existing compiler options
     "target": "ESNext",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
@@ -24,13 +29,13 @@
       }
     ]
   },
+  // Include all .ts, .tsx, plus the Next.js .next/types
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  // Exclude node_modules
+  "exclude": ["node_modules"]
 }
