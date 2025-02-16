@@ -531,14 +531,4 @@ export default function InputPanel({
     </div>
   );
 
-  function canSave() {
-    const ak = computeAltersklasse(yearOfBirth);
-    return Boolean(
-      yearOfBirth && yearOfBirth !== 0 &&
-      selectedPostal &&
-      (ak === 'AKL-KIN' ? franchise >= 0 : franchise >= 300) &&
-      currentPlan &&
-      profileName.trim() !== ''
-    );
-  }
 }
