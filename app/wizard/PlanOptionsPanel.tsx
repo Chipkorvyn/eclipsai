@@ -14,7 +14,8 @@ function getPlanTypeLabel(typ: string) {
     case 'TAR-BASE': return 'Standard';
     case 'TAR-HAM':  return 'Family doctor';
     case 'TAR-HMO':  return 'HMO';
-    default:         return 'Other plan types';
+    default:
+      return 'Other plan types';
   }
 }
 
@@ -39,7 +40,7 @@ export default function PlanOptionsPanel({
   const [planList, setPlanList] = useState<any[]>([]);
   const [currentMonthly, setCurrentMonthly] = useState<number | null>(null);
 
-  // Track whether each type is expanded or collapsed
+  // Track expansion states for “Show more/less”
   const [expanded, setExpanded] = useState<{
     [key: string]: boolean;
   }>({
@@ -49,6 +50,7 @@ export default function PlanOptionsPanel({
     'TAR-DIV':  false,
   });
 
+  // Must have location + bracket + franchise
   const hasMandatory = Boolean(
     userInputs.altersklasse &&
     userInputs.canton &&
@@ -92,7 +94,7 @@ export default function PlanOptionsPanel({
         }));
         mapped.sort((a: any, b: any) => a.monthlyPremium - b.monthlyPremium);
 
-        // If user has a recognized plan => store monthly cost
+        // If the user has a recognized plan => store currentMonthly
         let foundCurrent = null;
         if (
           userInputs.currentInsurer !== 'I have no insurer' &&
@@ -130,8 +132,8 @@ export default function PlanOptionsPanel({
     return <p>No plans found for these filters.</p>;
   }
 
-  // If recognized => show the current plan box
   const showSavings = currentMonthly !== null;
+
   let currentPlanBox = null;
   if (showSavings) {
     currentPlanBox = (
@@ -144,7 +146,7 @@ export default function PlanOptionsPanel({
     );
   }
 
-  // separate lists: TAR-BASE, TAR-HAM, TAR-HMO, TAR-DIV
+  // separate by type
   const standardArr = planList.filter((p) => p.tariftyp === 'TAR-BASE');
   const familyArr   = planList.filter((p) => p.tariftyp === 'TAR-HAM');
   const hmoArr      = planList.filter((p) => p.tariftyp === 'TAR-HMO');
@@ -161,14 +163,12 @@ export default function PlanOptionsPanel({
     </div>
   );
 
-  // =========== Renders the heading + desc + subtitle + table
   function renderTypeBlock(typ: string, subList: any[]) {
     if (!subList.length) return null;
 
     const label = getPlanTypeLabel(typ);
     const desc  = getPlanTypeDescription(typ);
 
-    // compute max savings
     let maxSavingsLine = null;
     if (showSavings) {
       const cheapest = subList[0].monthlyPremium;
@@ -198,7 +198,6 @@ export default function PlanOptionsPanel({
     );
   }
 
-  // =========== Table => first 5 or full if expanded
   function renderPlanTable(typ: string, subList: any[]) {
     const isExpanded = expanded[typ];
     const displayedRows = isExpanded ? subList : subList.slice(0, 5);
@@ -267,7 +266,7 @@ export default function PlanOptionsPanel({
           </tbody>
         </table>
 
-        {/* Show More or Show Less logic */}
+        {/* Show more or Show less if subList>5 */}
         {subList.length > 5 && (
           <div style={{ marginTop: '0.5rem' }}>
             {isExpanded ? (
