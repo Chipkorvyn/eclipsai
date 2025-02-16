@@ -5,7 +5,31 @@ import React, { useEffect, useState } from 'react';
 
 interface PlanOptionsPanelProps {
   userInputs: any;
-  onSelectPlan: (plan: any) => void; // add this so TS doesn't complain
+  onSelectPlan: (plan: any) => void;
+}
+
+// Convert `tariftyp` to a friendly label
+function getPlanTypeLabel(typ: string) {
+  switch (typ) {
+    case 'TAR-BASE': return 'Standard';
+    case 'TAR-HAM':  return 'Family doctor';
+    case 'TAR-HMO':  return 'HMO';
+    default:         return 'Other plan types';
+  }
+}
+
+// Short descriptive text for each type
+function getPlanTypeDescription(typ: string) {
+  switch (typ) {
+    case 'TAR-BASE':
+      return 'A simple mandatory coverage with free doctor choice.';
+    case 'TAR-HAM':
+      return 'Requires you to see your family doctor first.';
+    case 'TAR-HMO':
+      return 'Coordinates care via an HMO network.';
+    default:
+      return 'Alternative coverage beyond standard, family, or HMO.';
+  }
 }
 
 export default function PlanOptionsPanel({
@@ -15,15 +39,24 @@ export default function PlanOptionsPanel({
   const [planList, setPlanList] = useState<any[]>([]);
   const [currentMonthly, setCurrentMonthly] = useState<number | null>(null);
 
-  // Must have location + bracket + valid franchise
+  // Track whether each type is expanded or collapsed
+  const [expanded, setExpanded] = useState<{
+    [key: string]: boolean;
+  }>({
+    'TAR-BASE': false,
+    'TAR-HAM':  false,
+    'TAR-HMO':  false,
+    'TAR-DIV':  false,
+  });
+
   const hasMandatory = Boolean(
     userInputs.altersklasse &&
     userInputs.canton &&
     userInputs.region &&
     (
       userInputs.altersklasse === 'AKL-KIN'
-        ? userInputs.franchise >= 0 // child can be 0..600
-        : userInputs.franchise >= 300 // adult => 300..2500
+        ? userInputs.franchise >= 0
+        : userInputs.franchise >= 300
     )
   );
 
@@ -34,7 +67,6 @@ export default function PlanOptionsPanel({
       return;
     }
 
-    // 1) Build /api/premiums query
     const qs = new URLSearchParams({
       altersklasse: userInputs.altersklasse,
       canton: userInputs.canton,
@@ -44,7 +76,6 @@ export default function PlanOptionsPanel({
     });
     const url = `/api/premiums?${qs.toString()}`;
 
-    // 2) fetch data
     fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -53,14 +84,15 @@ export default function PlanOptionsPanel({
       .then((data) => {
         const mapped = data.map((row: any) => ({
           id: row.id,
+          tariftyp: row.tariftyp || 'TAR-DIV',
           insurer: row.insurer_name || '',
-          tarif: row.tarif, // plan code
+          tarif: row.tarif,
           planLabel: row.plan_label || row.tarifbezeichnung || row.tarif,
           monthlyPremium: parseFloat(row.praemie),
         }));
         mapped.sort((a: any, b: any) => a.monthlyPremium - b.monthlyPremium);
 
-        // 3) find a row matching currentInsurer + currentPlan
+        // If user has a recognized plan => store monthly cost
         let foundCurrent = null;
         if (
           userInputs.currentInsurer !== 'I have no insurer' &&
@@ -72,7 +104,6 @@ export default function PlanOptionsPanel({
               p.tarif === userInputs.currentPlan
           );
         }
-
         setPlanList(mapped);
         setCurrentMonthly(foundCurrent ? foundCurrent.monthlyPremium : null);
       })
@@ -88,9 +119,8 @@ export default function PlanOptionsPanel({
     userInputs.region,
     userInputs.franchise,
     userInputs.unfalleinschluss,
-    // also add if you want to re-fetch on plan changes:
-    userInputs.currentPlan,
-    userInputs.currentInsurer
+    userInputs.currentInsurer,
+    userInputs.currentPlan
   ]);
 
   if (!hasMandatory) {
@@ -100,8 +130,8 @@ export default function PlanOptionsPanel({
     return <p>No plans found for these filters.</p>;
   }
 
+  // If recognized => show the current plan box
   const showSavings = currentMonthly !== null;
-
   let currentPlanBox = null;
   if (showSavings) {
     currentPlanBox = (
@@ -114,54 +144,164 @@ export default function PlanOptionsPanel({
     );
   }
 
+  // separate lists: TAR-BASE, TAR-HAM, TAR-HMO, TAR-DIV
+  const standardArr = planList.filter((p) => p.tariftyp === 'TAR-BASE');
+  const familyArr   = planList.filter((p) => p.tariftyp === 'TAR-HAM');
+  const hmoArr      = planList.filter((p) => p.tariftyp === 'TAR-HMO');
+  const otherArr    = planList.filter((p) => p.tariftyp === 'TAR-DIV');
+
   return (
     <div>
       {currentPlanBox}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid #ccc' }}>
-            <th style={{ textAlign: 'left', padding: '6px' }}>Insurer</th>
-            <th style={{ textAlign: 'left', padding: '6px' }}>Plan</th>
-            <th style={{ textAlign: 'left', padding: '6px' }}>Monthly Premium</th>
-            {showSavings && <th style={{ textAlign: 'left', padding: '6px' }}>Savings</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {planList.map((p) => {
-            let diffStr = '';
-            if (showSavings && currentMonthly != null) {
-              const diff = p.monthlyPremium - currentMonthly;
-              diffStr = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
-            }
 
-            return (
-              <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '6px' }}>{p.insurer}</td>
-                <td style={{ padding: '6px' }}>
-                  {/* Example usage of onSelectPlan */}
-                  <button
-                    style={{ background: 'none', border: 'none', color: 'blue', cursor: 'pointer' }}
-                    onClick={() => onSelectPlan(p)}
-                  >
-                    {p.planLabel}
-                  </button>
-                </td>
-                <td style={{ padding: '6px' }}>{p.monthlyPremium.toFixed(2)}</td>
-                {showSavings && (
-                  <td
-                    style={{
-                      padding: '6px',
-                      color: diffStr.startsWith('-') ? 'green' : 'red',
-                    }}
-                  >
-                    {diffStr}
-                  </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {renderTypeBlock('TAR-BASE', standardArr)}
+      {renderTypeBlock('TAR-HAM',  familyArr)}
+      {renderTypeBlock('TAR-HMO',  hmoArr)}
+      {renderTypeBlock('TAR-DIV',  otherArr)}
     </div>
   );
+
+  // =========== Renders the heading + desc + subtitle + table
+  function renderTypeBlock(typ: string, subList: any[]) {
+    if (!subList.length) return null;
+
+    const label = getPlanTypeLabel(typ);
+    const desc  = getPlanTypeDescription(typ);
+
+    // compute max savings
+    let maxSavingsLine = null;
+    if (showSavings) {
+      const cheapest = subList[0].monthlyPremium;
+      const diffAnnual = (cheapest - currentMonthly!) * 12;
+      if (diffAnnual < 0) {
+        maxSavingsLine = (
+          <p style={{ fontWeight: 'bold', marginTop: '0' }}>
+            Maximum savings: {Math.abs(diffAnnual).toFixed(2)} CHF
+          </p>
+        );
+      } else {
+        maxSavingsLine = (
+          <p style={{ fontWeight: 'bold', marginTop: '0' }}>
+            Maximum savings: 0 CHF
+          </p>
+        );
+      }
+    }
+
+    return (
+      <div style={{ marginBottom: '1.5rem' }}>
+        <h3 style={{ marginBottom: '0.2rem' }}>{label}</h3>
+        <p style={{ marginTop: '0', fontStyle: 'italic' }}>{desc}</p>
+        {maxSavingsLine}
+        {renderPlanTable(typ, subList)}
+      </div>
+    );
+  }
+
+  // =========== Table => first 5 or full if expanded
+  function renderPlanTable(typ: string, subList: any[]) {
+    const isExpanded = expanded[typ];
+    const displayedRows = isExpanded ? subList : subList.slice(0, 5);
+
+    return (
+      <>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #ccc' }}>
+              <th style={{ textAlign: 'left', padding: '6px' }}>Insurer</th>
+              <th style={{ textAlign: 'left', padding: '6px' }}>Plan</th>
+              <th style={{ textAlign: 'left', padding: '6px' }}>Monthly Premium</th>
+              {showSavings && (
+                <th style={{ textAlign: 'left', padding: '6px' }}>Annual Savings</th>
+              )}
+              <th style={{ textAlign: 'left', padding: '6px' }}>View Plan</th>
+            </tr>
+          </thead>
+          <tbody>
+            {displayedRows.map((p: any) => {
+              let diffStr = '';
+              if (showSavings && currentMonthly !== null) {
+                const diffAnnual = (p.monthlyPremium - currentMonthly) * 12;
+                diffStr = diffAnnual > 0
+                  ? `+${diffAnnual.toFixed(2)}`
+                  : diffAnnual.toFixed(2);
+              }
+
+              return (
+                <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '6px' }}>{p.insurer}</td>
+                  <td style={{ padding: '6px' }}>
+                    <button
+                      style={{ background: 'none', border: 'none', color: 'blue', cursor: 'pointer' }}
+                      onClick={() => onSelectPlan(p)}
+                    >
+                      {p.planLabel}
+                    </button>
+                  </td>
+                  <td style={{ padding: '6px' }}>
+                    {p.monthlyPremium.toFixed(2)}
+                  </td>
+                  {showSavings && (
+                    <td
+                      style={{
+                        padding: '6px',
+                        color: diffStr.startsWith('-') ? 'green' : 'red'
+                      }}
+                    >
+                      {diffStr}
+                    </td>
+                  )}
+                  <td style={{ padding: '6px' }}>
+                    <button
+                      style={{ background: '#ddd', border: 'none', padding: '4px', cursor: 'pointer' }}
+                      onClick={() => {
+                        // does nothing for now
+                      }}
+                    >
+                      View Plan
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* Show More or Show Less logic */}
+        {subList.length > 5 && (
+          <div style={{ marginTop: '0.5rem' }}>
+            {isExpanded ? (
+              <button
+                style={{ background: 'none', border: 'none', color: 'blue', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={() => handleCollapse(typ)}
+              >
+                Show less
+              </button>
+            ) : (
+              <button
+                style={{ background: 'none', border: 'none', color: 'blue', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={() => handleExpand(typ)}
+              >
+                Show more
+              </button>
+            )}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  function handleExpand(typ: string) {
+    setExpanded((prev) => ({
+      ...prev,
+      [typ]: true
+    }));
+  }
+
+  function handleCollapse(typ: string) {
+    setExpanded((prev) => ({
+      ...prev,
+      [typ]: false
+    }));
+  }
 }

@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect } from 'react';
 
-// =========== Helpers
 function computeAltersklasse(yob: number) {
   if (!yob || yob <= 0) return '';
   const age = 2025 - yob;
@@ -12,7 +11,7 @@ function computeAltersklasse(yob: number) {
   return 'AKL-ERW';
 }
 
-// Kids => [0,100,200,300,400,500,600], else => [300,500,1000,1500,2000,2500]
+// kids => [0,100,200,300,400,500,600], else => [300,500,1000,1500,2000,2500]
 function getFranchiseOptions(altersklasse: string) {
   if (altersklasse === 'AKL-KIN') {
     return [0,100,200,300,400,500,600];
@@ -20,11 +19,7 @@ function getFranchiseOptions(altersklasse: string) {
   return [300,500,1000,1500,2000,2500];
 }
 
-// We group plans by `tariftyp`, but we want a fixed order for the groups:
-// 1) TAR-BASE => Standard
-// 2) TAR-HAM  => Family doctor
-// 3) TAR-HMO  => HMO
-// 4) TAR-DIV  => Other plan types
+// We'll maintain a fixed plan type order: Standard => Family doctor => HMO => Other plan types
 const planTypeOrder = ['TAR-BASE','TAR-HAM','TAR-HMO','TAR-DIV'] as const;
 const planTypeLabels: Record<string,string> = {
   'TAR-BASE': 'Standard',
@@ -33,14 +28,15 @@ const planTypeLabels: Record<string,string> = {
   'TAR-DIV':  'Other plan types',
 };
 
-function groupPlansByType(planList: any[]) {
+function groupPlansByType(plans: any[]) {
+  // Initialize each group so we keep the correct order
   const grouped: Record<string, any[]> = {
     'TAR-BASE': [],
     'TAR-HAM':  [],
     'TAR-HMO':  [],
     'TAR-DIV':  [],
   };
-  for (const p of planList) {
+  for (const p of plans) {
     const typ = p.tariftyp || 'TAR-DIV';
     if (!grouped[typ]) grouped[typ] = [];
     grouped[typ].push(p);
@@ -60,40 +56,33 @@ function buildPlansQuery(bagCode: string, inputs: any) {
   return '/api/insurerPlans?' + qs.toString();
 }
 
-// =========== Component
-export default function InputPanel({ userInputs, onUserInputsChange }: {
+export default function InputPanel({
+  userInputs,
+  onUserInputsChange
+}: {
   userInputs: any;
   onUserInputsChange: (vals: any) => void;
 }) {
-  // local states for main filtering
-  // (1) Year of Birth => "text" => no arrow spinners => parse
+  // =========== States for main filtering
   const [yearOfBirth, setYearOfBirth] = useState(userInputs.yearOfBirth || 0);
   const [franchise, setFranchise] = useState(userInputs.franchise || 0);
   const [unfalleinschluss, setUnfalleinschluss] = useState(userInputs.unfalleinschluss || 'MIT-UNF');
 
-  // location
+  // =========== location
   const [plzInput, setPlzInput] = useState('');
   const [postalMatches, setPostalMatches] = useState<any[]>([]);
   const [selectedPostal, setSelectedPostal] = useState<any | null>(null);
 
-  // insurer
+  // =========== insurer
   const [insurerList, setInsurerList] = useState<any[]>([]);
   const [currentInsurerBagCode, setCurrentInsurerBagCode] = useState(userInputs.currentInsurerBagCode || '');
   const [currentInsurer, setCurrentInsurer] = useState(userInputs.currentInsurer || 'I have no insurer');
 
-  // plan => from the new grouping approach
+  // =========== plan
   const [planList, setPlanList] = useState<any[]>([]);
   const [currentPlan, setCurrentPlan] = useState(userInputs.currentPlan || '');
 
-  // toggles => not stored in DB
-  const [unrestrictedAccess, setUnrestrictedAccess] = useState(false);
-  const [wantsTelePharm, setWantsTelePharm] = useState(false);
-  const [wantsFamilyDocModel, setWantsFamilyDocModel] = useState(false);
-  const [wantsHmoModel, setWantsHmoModel] = useState(false);
-  const [preferredDoctorName, setPreferredDoctorName] = useState('');
-  const [hasPreferredDoctor, setHasPreferredDoctor] = useState(false);
-
-  // saving profiles
+  // =========== saving profiles
   const [profileName, setProfileName] = useState('');
   const [savedProfiles, setSavedProfiles] = useState<any[]>([]);
 
@@ -105,7 +94,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
       .catch((err) => console.error('fetchInsurers error:', err));
   }, []);
 
-  // PLZ Autocomplete
+  // PLZ autocomplete
   useEffect(() => {
     if (!plzInput) {
       setPostalMatches([]);
@@ -126,7 +115,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
     setPostalMatches([]);
   }
 
-  // parse year => no arrow
+  // year => text => parse => no arrow spinners
   function handleYearInput(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value.trim();
     const num = parseInt(val, 10);
@@ -203,21 +192,22 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
     }
   }
 
-  // plan grouping
-  function groupPlansByType(plans: any[]) {
+  // group plan list => fixed order
+  function groupPlansByType(planList: any[]) {
     const grouped: Record<string, any[]> = {
       'TAR-BASE': [],
       'TAR-HAM':  [],
       'TAR-HMO':  [],
       'TAR-DIV':  [],
     };
-    for (const p of plans) {
+    for (const p of planList) {
       const typ = p.tariftyp || 'TAR-DIV';
       if (!grouped[typ]) grouped[typ] = [];
       grouped[typ].push(p);
     }
     return grouped;
   }
+
   const planTypeOrder = ['TAR-BASE','TAR-HAM','TAR-HMO','TAR-DIV'];
   const planTypeLabels: Record<string,string> = {
     'TAR-BASE': 'Standard',
@@ -231,7 +221,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
   const ak = computeAltersklasse(yearOfBirth);
   const franchiseOptions = getFranchiseOptions(ak);
 
-  // Save profile => resets fields after success
+  // save profile => reset fields after success
   async function handleSaveProfile() {
     if (!selectedPostal) {
       alert('Please select a postal row first.');
@@ -267,8 +257,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
         alert('Profile saved => ' + data.profile.profile_name);
         setProfileName('');
         fetchProfiles();
-        // (2) Reset all fields => default like page refresh
-        resetAllFields();
+        resetAllFields(); // after saving
       } else {
         alert('Error saving => ' + data.error);
       }
@@ -278,7 +267,6 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
     }
   }
 
-  // function to reset fields => default
   function resetAllFields() {
     setYearOfBirth(0);
     setFranchise(0);
@@ -288,16 +276,9 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
     setCurrentInsurerBagCode('');
     setCurrentInsurer('I have no insurer');
     setCurrentPlan('');
-    // toggles => false
-    setUnrestrictedAccess(false);
-    setWantsTelePharm(false);
-    setWantsFamilyDocModel(false);
-    setWantsHmoModel(false);
-    setPreferredDoctorName('');
-    setHasPreferredDoctor(false);
   }
 
-  // Delete row
+  // delete row
   async function handleDeleteProfile(id: number) {
     if (!confirm('Delete profile ' + id + '?')) return;
     try {
@@ -313,7 +294,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
     }
   }
 
-  // Load profile => fill location, plan, etc.
+  // load a profile => re-create selectedPostal
   function handleLoadProfile(p: any) {
     const newPostal = {
       id: p.postal_id,
@@ -341,19 +322,23 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
   }
 
   // can user save?
-  const hasAllRequired = Boolean(
-    yearOfBirth && yearOfBirth !== 0 &&
-    selectedPostal &&
-    franchise > 0 &&
-    currentPlan &&
-    profileName.trim() !== ''
-  );
+  function canSave() {
+    // if child => franchise >=0; else => >=300
+    const ak = computeAltersklasse(yearOfBirth);
+    return Boolean(
+      yearOfBirth && yearOfBirth !== 0 &&
+      selectedPostal &&
+      (ak === 'AKL-KIN' ? franchise >= 0 : franchise >= 300) &&
+      currentPlan &&
+      profileName.trim() !== ''
+    );
+  }
 
   return (
     <div style={{ padding: '1rem' }}>
       <h3>Input Panel</h3>
 
-      {/* 1) Year => text => parse => no arrow */}
+      {/* Year => text => parse => no arrow */}
       <div style={{ marginBottom: '0.5rem' }}>
         <label>Year of Birth: </label>
         <input
@@ -364,7 +349,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
         />
       </div>
 
-      {/* 2) Accident Coverage */}
+      {/* Accident Coverage */}
       <div style={{ marginBottom: '0.5rem' }}>
         <label>Accident Coverage: </label>
         <select
@@ -376,7 +361,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
         </select>
       </div>
 
-      {/* 3) Franchise => dynamic */}
+      {/* Franchise => dynamic */}
       <div style={{ marginBottom: '0.5rem' }}>
         <label>Franchise: </label>
         <select
@@ -390,7 +375,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
         </select>
       </div>
 
-      {/* 4) PLZ */}
+      {/* PLZ */}
       <div style={{ marginBottom: '0.5rem' }}>
         <label>PLZ: </label>
         <input
@@ -422,59 +407,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
         </div>
       )}
 
-      {/* toggles (not stored, no changes from old code) */}
-      <div style={{ marginTop: '1rem' }}>
-        <label>
-          <input
-            type="checkbox"
-            checked={unrestrictedAccess}
-            onChange={(e) => setUnrestrictedAccess(e.target.checked)}
-          />
-          Unrestricted Access
-        </label>
-        <br />
-        <label>
-          <input
-            type="checkbox"
-            checked={wantsTelePharm}
-            onChange={(e) => setWantsTelePharm(e.target.checked)}
-          />
-          TelePharm
-        </label>
-        <br />
-        <label>
-          <input
-            type="checkbox"
-            checked={wantsFamilyDocModel}
-            onChange={(e) => setWantsFamilyDocModel(e.target.checked)}
-          />
-          Family Doctor
-        </label>
-        {wantsFamilyDocModel && (
-          <div style={{ marginTop: '0.5rem' }}>
-            <label>Preferred Doctor: </label>
-            <input
-              type="text"
-              value={preferredDoctorName}
-              onChange={(ev) => {
-                setPreferredDoctorName(ev.target.value);
-                setHasPreferredDoctor(!!ev.target.value.trim());
-              }}
-            />
-          </div>
-        )}
-        <br />
-        <label>
-          <input
-            type="checkbox"
-            checked={wantsHmoModel}
-            onChange={(e) => setWantsHmoModel(e.target.checked)}
-          />
-          HMO Model
-        </label>
-      </div>
-
-      {/* 5) Current Insurer */}
+      {/* Current Insurer */}
       <div style={{ marginTop: '1rem' }}>
         <label>Current Insurer: </label>
         <select
@@ -499,7 +432,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
         </select>
       </div>
 
-      {/* 6) Current Plan => grouped in fixed order */}
+      {/* Current Plan => grouped in fixed order */}
       {currentInsurerBagCode && (
         <div style={{ marginTop: '0.5rem' }}>
           <label>Current Plan: </label>
@@ -509,12 +442,12 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
           >
             <option value="">(None)</option>
             {planTypeOrder.map((typ) => {
-              const arr = groupPlansByType(planList)[typ] || [];
-              if (!arr.length) return null; // skip empty group
-              const label = planTypeLabels[typ] || 'Other plan types';
+              const groupArr = groupPlansByType(planList)[typ] || [];
+              if (!groupArr.length) return null;
+              const label = planTypeLabels[typ];
               return (
                 <optgroup key={typ} label={label}>
-                  {arr.map((p) => (
+                  {groupArr.map((p) => (
                     <option key={p.distinctTarif} value={p.distinctTarif}>
                       {p.distinctLabel}
                     </option>
@@ -526,7 +459,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
         </div>
       )}
 
-      {/* 7) Save profile + name */}
+      {/* Profile Name + Save */}
       <div style={{ marginTop: '1rem' }}>
         <label>Profile Name: </label>
         <input
@@ -551,7 +484,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
         Save Profile
       </button>
 
-      {/* 8) Saved profiles => load or delete */}
+      {/* Saved profiles => load or delete */}
       <div style={{ marginTop: '1rem', background: '#fafafa', padding: '0.5rem' }}>
         <h4>Saved Profiles</h4>
         {savedProfiles.length === 0 ? (
@@ -598,7 +531,6 @@ export default function InputPanel({ userInputs, onUserInputsChange }: {
     </div>
   );
 
-  // check if user can save
   function canSave() {
     const ak = computeAltersklasse(yearOfBirth);
     return Boolean(

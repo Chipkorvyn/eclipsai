@@ -59,15 +59,17 @@ export async function GET(request: Request) {
     });
 
     const sql = `
-      SELECT p.id,
-             p.tarif,
-             p.tarifbezeichnung,
-             p.franchise,
-             p.unfalleinschluss,
-             p.altersklasse,
-             p.praemie,
-             i.name AS insurer_name,
-             COALESCE(NULLIF(p.tarifbezeichnung,''), p.tarif) AS plan_label
+      SELECT
+        p.id,
+        p.tarif,
+        p.tariftyp,
+        p.tarifbezeichnung,
+        p.franchise,
+        p.unfalleinschluss,
+        p.altersklasse,
+        p.praemie,
+        i.name AS insurer_name,
+        COALESCE(NULLIF(p.tarifbezeichnung,''), p.tarif) AS plan_label
       FROM premiums p
       LEFT JOIN insurers i
         ON p.bag_code = i.bag_code
