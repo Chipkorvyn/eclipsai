@@ -13,12 +13,6 @@ export default function WizardPage() {
     canton: '',
     region: '',
     altersklasse: '',
-    unrestrictedAccess: false,
-    wantsTelePharm: false,
-    wantsFamilyDocModel: false,
-    wantsHmoModel: false,
-    hasPreferredDoctor: false,
-    preferredDoctorName: '',
     currentInsurerBagCode: '',
     currentInsurer: 'I have no insurer',
     currentPlan: '',
@@ -29,8 +23,7 @@ export default function WizardPage() {
   }
 
   function handleSelectPlan(plan: any) {
-    console.log('Selected plan in page.tsx:', plan);
-    // You might do something else here, e.g. open a modal, etc.
+    console.log('Selected plan in page:', plan);
   }
 
   return (

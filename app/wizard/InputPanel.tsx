@@ -3,12 +3,49 @@
 
 import React, { useState, useEffect } from 'react';
 
-function computeAltersklasse(yob: number): string {
+// =========== Helpers
+function computeAltersklasse(yob: number) {
   if (!yob || yob <= 0) return '';
   const age = 2025 - yob;
   if (age <= 18) return 'AKL-KIN';
   if (age <= 25) return 'AKL-JUG';
   return 'AKL-ERW';
+}
+
+// Kids => [0,100,200,300,400,500,600], else => [300,500,1000,1500,2000,2500]
+function getFranchiseOptions(altersklasse: string) {
+  if (altersklasse === 'AKL-KIN') {
+    return [0,100,200,300,400,500,600];
+  }
+  return [300,500,1000,1500,2000,2500];
+}
+
+// We group plans by `tariftyp`, but we want a fixed order for the groups:
+// 1) TAR-BASE => Standard
+// 2) TAR-HAM  => Family doctor
+// 3) TAR-HMO  => HMO
+// 4) TAR-DIV  => Other plan types
+const planTypeOrder = ['TAR-BASE','TAR-HAM','TAR-HMO','TAR-DIV'] as const;
+const planTypeLabels: Record<string,string> = {
+  'TAR-BASE': 'Standard',
+  'TAR-HAM':  'Family doctor',
+  'TAR-HMO':  'HMO',
+  'TAR-DIV':  'Other plan types',
+};
+
+function groupPlansByType(planList: any[]) {
+  const grouped: Record<string, any[]> = {
+    'TAR-BASE': [],
+    'TAR-HAM':  [],
+    'TAR-HMO':  [],
+    'TAR-DIV':  [],
+  };
+  for (const p of planList) {
+    const typ = p.tariftyp || 'TAR-DIV';
+    if (!grouped[typ]) grouped[typ] = [];
+    grouped[typ].push(p);
+  }
+  return grouped;
 }
 
 function buildPlansQuery(bagCode: string, inputs: any) {
@@ -23,36 +60,44 @@ function buildPlansQuery(bagCode: string, inputs: any) {
   return '/api/insurerPlans?' + qs.toString();
 }
 
-export default function InputPanel({ userInputs, onUserInputsChange }) {
+// =========== Component
+export default function InputPanel({ userInputs, onUserInputsChange }: {
+  userInputs: any;
+  onUserInputsChange: (vals: any) => void;
+}) {
+  // local states for main filtering
+  // (1) Year of Birth => "text" => no arrow spinners => parse
   const [yearOfBirth, setYearOfBirth] = useState(userInputs.yearOfBirth || 0);
-  const [franchise, setFranchise] = useState(userInputs.franchise || 300);
+  const [franchise, setFranchise] = useState(userInputs.franchise || 0);
   const [unfalleinschluss, setUnfalleinschluss] = useState(userInputs.unfalleinschluss || 'MIT-UNF');
 
+  // location
   const [plzInput, setPlzInput] = useState('');
-  const [postalMatches, setPostalMatches] = useState([]);
-  const [selectedPostal, setSelectedPostal] = useState(null);
+  const [postalMatches, setPostalMatches] = useState<any[]>([]);
+  const [selectedPostal, setSelectedPostal] = useState<any | null>(null);
 
-  const [insurerList, setInsurerList] = useState([]);
-  const [currentInsurerBagCode, setCurrentInsurerBagCode] = useState(
-    userInputs.currentInsurerBagCode || ''
-  );
-  const [currentInsurer, setCurrentInsurer] = useState(
-    userInputs.currentInsurer || 'I have no insurer'
-  );
+  // insurer
+  const [insurerList, setInsurerList] = useState<any[]>([]);
+  const [currentInsurerBagCode, setCurrentInsurerBagCode] = useState(userInputs.currentInsurerBagCode || '');
+  const [currentInsurer, setCurrentInsurer] = useState(userInputs.currentInsurer || 'I have no insurer');
 
-  // Plans for "Current Plan" dropdown
-  const [planList, setPlanList] = useState([]);
+  // plan => from the new grouping approach
+  const [planList, setPlanList] = useState<any[]>([]);
   const [currentPlan, setCurrentPlan] = useState(userInputs.currentPlan || '');
 
-  // Toggles
-  const [unrestrictedAccess, setUnrestrictedAccess] = useState(userInputs.unrestrictedAccess || false);
-  const [wantsTelePharm, setWantsTelePharm] = useState(userInputs.wantsTelePharm || false);
-  const [wantsFamilyDocModel, setWantsFamilyDocModel] = useState(userInputs.wantsFamilyDocModel || false);
-  const [wantsHmoModel, setWantsHmoModel] = useState(userInputs.wantsHmoModel || false);
-  const [preferredDoctorName, setPreferredDoctorName] = useState(userInputs.preferredDoctorName || '');
-  const [hasPreferredDoctor, setHasPreferredDoctor] = useState(userInputs.hasPreferredDoctor || false);
+  // toggles => not stored in DB
+  const [unrestrictedAccess, setUnrestrictedAccess] = useState(false);
+  const [wantsTelePharm, setWantsTelePharm] = useState(false);
+  const [wantsFamilyDocModel, setWantsFamilyDocModel] = useState(false);
+  const [wantsHmoModel, setWantsHmoModel] = useState(false);
+  const [preferredDoctorName, setPreferredDoctorName] = useState('');
+  const [hasPreferredDoctor, setHasPreferredDoctor] = useState(false);
 
-  // ============== A) Fetch insurers
+  // saving profiles
+  const [profileName, setProfileName] = useState('');
+  const [savedProfiles, setSavedProfiles] = useState<any[]>([]);
+
+  // fetch insurers once
   useEffect(() => {
     fetch('/api/insurers')
       .then((r) => r.json())
@@ -60,19 +105,19 @@ export default function InputPanel({ userInputs, onUserInputsChange }) {
       .catch((err) => console.error('fetchInsurers error:', err));
   }, []);
 
-  // ============== B) PLZ Autocomplete
+  // PLZ Autocomplete
   useEffect(() => {
     if (!plzInput) {
       setPostalMatches([]);
       return;
     }
-    const timer = setTimeout(() => {
+    const t = setTimeout(() => {
       fetch(`/api/postal?search=${encodeURIComponent(plzInput)}`)
         .then((r) => r.json())
         .then((data) => setPostalMatches(data))
         .catch(() => setPostalMatches([]));
     }, 300);
-    return () => clearTimeout(timer);
+    return () => clearTimeout(t);
   }, [plzInput]);
 
   function handleSelectPostal(row: any) {
@@ -81,7 +126,18 @@ export default function InputPanel({ userInputs, onUserInputsChange }) {
     setPostalMatches([]);
   }
 
-  // ============== C) Re-Fetch plan list if insurer+location+age
+  // parse year => no arrow
+  function handleYearInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value.trim();
+    const num = parseInt(val, 10);
+    if (Number.isNaN(num)) {
+      setYearOfBirth(0);
+    } else {
+      setYearOfBirth(num);
+    }
+  }
+
+  // re-fetch plan list if user picks insurer + location + bracket
   useEffect(() => {
     if (!currentInsurerBagCode) {
       setPlanList([]);
@@ -94,29 +150,17 @@ export default function InputPanel({ userInputs, onUserInputsChange }) {
       region: selectedPostal ? `PR-REG CH${selectedPostal.region_int}` : '',
       altersklasse: ak,
       franchise,
-      unfalleinschluss,
+      unfalleinschluss
     };
     const url = buildPlansQuery(currentInsurerBagCode, partial);
 
     fetch(url)
-      .then((r) => {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
-      .then((arr) => {
-        // arr => [{ distinctTarif, distinctLabel }]
-        setPlanList(arr);
-      })
+      .then((r) => r.json())
+      .then((arr) => setPlanList(arr))
       .catch(() => setPlanList([]));
-  }, [
-    currentInsurerBagCode,
-    yearOfBirth,
-    franchise,
-    unfalleinschluss,
-    selectedPostal
-  ]);
+  }, [currentInsurerBagCode, yearOfBirth, franchise, unfalleinschluss, selectedPostal]);
 
-  // ============== D) Pass everything up to parent
+  // re-sync to parent
   useEffect(() => {
     const ak = computeAltersklasse(yearOfBirth);
     const updated = {
@@ -126,46 +170,202 @@ export default function InputPanel({ userInputs, onUserInputsChange }) {
       canton: selectedPostal ? selectedPostal.kanton : '',
       region: selectedPostal ? `PR-REG CH${selectedPostal.region_int}` : '',
       altersklasse: ak,
-      unrestrictedAccess,
-      wantsTelePharm,
-      wantsFamilyDocModel,
-      wantsHmoModel,
-      hasPreferredDoctor,
-      preferredDoctorName,
       currentInsurerBagCode,
       currentInsurer,
-      currentPlan,
+      currentPlan
     };
-    // Avoid infinite loop => do not include onUserInputsChange in deps
     onUserInputsChange(updated);
   }, [
     yearOfBirth,
     franchise,
     unfalleinschluss,
     selectedPostal,
-    unrestrictedAccess,
-    wantsTelePharm,
-    wantsFamilyDocModel,
-    wantsHmoModel,
-    hasPreferredDoctor,
-    preferredDoctorName,
     currentInsurerBagCode,
     currentInsurer,
-    currentPlan
+    currentPlan,
+    onUserInputsChange
   ]);
+
+  // load all profiles on mount
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
+
+  async function fetchProfiles() {
+    try {
+      const res = await fetch('/api/profiles');
+      const data = await res.json();
+      if (data.success) {
+        setSavedProfiles(data.profiles);
+      }
+    } catch (err) {
+      console.error('fetchProfiles error:', err);
+    }
+  }
+
+  // plan grouping
+  function groupPlansByType(plans: any[]) {
+    const grouped: Record<string, any[]> = {
+      'TAR-BASE': [],
+      'TAR-HAM':  [],
+      'TAR-HMO':  [],
+      'TAR-DIV':  [],
+    };
+    for (const p of plans) {
+      const typ = p.tariftyp || 'TAR-DIV';
+      if (!grouped[typ]) grouped[typ] = [];
+      grouped[typ].push(p);
+    }
+    return grouped;
+  }
+  const planTypeOrder = ['TAR-BASE','TAR-HAM','TAR-HMO','TAR-DIV'];
+  const planTypeLabels: Record<string,string> = {
+    'TAR-BASE': 'Standard',
+    'TAR-HAM':  'Family doctor',
+    'TAR-HMO':  'HMO',
+    'TAR-DIV':  'Other plan types',
+  };
+  const grouped = groupPlansByType(planList);
+
+  // dynamic franchise
+  const ak = computeAltersklasse(yearOfBirth);
+  const franchiseOptions = getFranchiseOptions(ak);
+
+  // Save profile => resets fields after success
+  async function handleSaveProfile() {
+    if (!selectedPostal) {
+      alert('Please select a postal row first.');
+      return;
+    }
+    try {
+      const body = {
+        profileName,
+
+        // entire selectedPostal
+        postalId: selectedPostal.id,
+        postalPlz: selectedPostal.plz,
+        postalOrtLocalite: selectedPostal.ort_localite,
+        postalGemeinde: selectedPostal.gemeinde,
+        postalKanton: selectedPostal.kanton,
+        postalRegionInt: selectedPostal.region_int,
+
+        yearOfBirth,
+        canton: selectedPostal.kanton || '',
+        region: `PR-REG CH${selectedPostal.region_int}`,
+        franchise,
+        currentPlan,
+        unfalleinschluss,
+        currentInsurerBagCode
+      };
+      const res = await fetch('/api/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Profile saved => ' + data.profile.profile_name);
+        setProfileName('');
+        fetchProfiles();
+        // (2) Reset all fields => default like page refresh
+        resetAllFields();
+      } else {
+        alert('Error saving => ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error while saving');
+    }
+  }
+
+  // function to reset fields => default
+  function resetAllFields() {
+    setYearOfBirth(0);
+    setFranchise(0);
+    setUnfalleinschluss('MIT-UNF');
+    setPlzInput('');
+    setSelectedPostal(null);
+    setCurrentInsurerBagCode('');
+    setCurrentInsurer('I have no insurer');
+    setCurrentPlan('');
+    // toggles => false
+    setUnrestrictedAccess(false);
+    setWantsTelePharm(false);
+    setWantsFamilyDocModel(false);
+    setWantsHmoModel(false);
+    setPreferredDoctorName('');
+    setHasPreferredDoctor(false);
+  }
+
+  // Delete row
+  async function handleDeleteProfile(id: number) {
+    if (!confirm('Delete profile ' + id + '?')) return;
+    try {
+      const res = await fetch('/api/profiles?id=' + id, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setSavedProfiles((prev) => prev.filter((p) => p.id !== data.deletedId));
+      } else {
+        alert('Delete error => ' + data.error);
+      }
+    } catch (err) {
+      alert('Network error while deleting');
+    }
+  }
+
+  // Load profile => fill location, plan, etc.
+  function handleLoadProfile(p: any) {
+    const newPostal = {
+      id: p.postal_id,
+      plz: p.postal_plz,
+      ort_localite: p.postal_ort_localite,
+      gemeinde: p.postal_gemeinde,
+      kanton: p.postal_kanton,
+      region_int: p.postal_region_int,
+    };
+    setSelectedPostal(newPostal);
+    setPlzInput(p.postal_plz || '');
+
+    setYearOfBirth(p.year_of_birth || 0);
+    setFranchise(p.franchise || 0);
+    setUnfalleinschluss(p.unfalleinschluss || 'MIT-UNF');
+    setCurrentPlan(p.current_plan || '');
+    setCurrentInsurerBagCode(p.current_insurer_bag_code || '');
+    if (p.current_insurer_bag_code) {
+      const found = insurerList.find((ins) => ins.bag_code === p.current_insurer_bag_code);
+      setCurrentInsurer(found ? found.name : 'Unknown insurer');
+    } else {
+      setCurrentInsurer('I have no insurer');
+    }
+    alert('Profile loaded => ' + p.profile_name);
+  }
+
+  // can user save?
+  const hasAllRequired = Boolean(
+    yearOfBirth && yearOfBirth !== 0 &&
+    selectedPostal &&
+    franchise > 0 &&
+    currentPlan &&
+    profileName.trim() !== ''
+  );
 
   return (
     <div style={{ padding: '1rem' }}>
       <h3>Input Panel</h3>
-      <div>
+
+      {/* 1) Year => text => parse => no arrow */}
+      <div style={{ marginBottom: '0.5rem' }}>
         <label>Year of Birth: </label>
         <input
-          type="number"
+          type="text"
+          inputMode="numeric"
           value={yearOfBirth || ''}
-          onChange={(e) => setYearOfBirth(Number(e.target.value))}
+          onChange={handleYearInput}
         />
       </div>
-      <div>
+
+      {/* 2) Accident Coverage */}
+      <div style={{ marginBottom: '0.5rem' }}>
         <label>Accident Coverage: </label>
         <select
           value={unfalleinschluss}
@@ -175,16 +375,23 @@ export default function InputPanel({ userInputs, onUserInputsChange }) {
           <option value="OHN-UNF">Without Accident</option>
         </select>
       </div>
-      <div>
+
+      {/* 3) Franchise => dynamic */}
+      <div style={{ marginBottom: '0.5rem' }}>
         <label>Franchise: </label>
-        <input
-          type="number"
+        <select
           value={franchise}
           onChange={(e) => setFranchise(Number(e.target.value))}
-        />
+        >
+          <option value={0}>--</option>
+          {franchiseOptions.map((f) => (
+            <option key={f} value={f}>{f}</option>
+          ))}
+        </select>
       </div>
 
-      <div>
+      {/* 4) PLZ */}
+      <div style={{ marginBottom: '0.5rem' }}>
         <label>PLZ: </label>
         <input
           type="text"
@@ -196,7 +403,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }) {
         />
         {postalMatches.length > 0 && !selectedPostal && (
           <ul style={{ border: '1px solid #ccc', margin: 0, padding: 0 }}>
-            {postalMatches.map((row: any) => (
+            {postalMatches.map((row) => (
               <li
                 key={row.id}
                 style={{ listStyle: 'none', padding: '4px', cursor: 'pointer' }}
@@ -209,12 +416,13 @@ export default function InputPanel({ userInputs, onUserInputsChange }) {
         )}
       </div>
       {selectedPostal && (
-        <div style={{ background: '#f5f5f5', padding: '0.5rem', marginTop: '0.5rem' }}>
+        <div style={{ background: '#f5f5f5', padding: '0.5rem' }}>
           <p>Selected: {selectedPostal.plz} - {selectedPostal.ort_localite}</p>
           <p>Canton: {selectedPostal.kanton}, Region: PR-REG CH{selectedPostal.region_int}</p>
         </div>
       )}
 
+      {/* toggles (not stored, no changes from old code) */}
       <div style={{ marginTop: '1rem' }}>
         <label>
           <input
@@ -248,9 +456,9 @@ export default function InputPanel({ userInputs, onUserInputsChange }) {
             <input
               type="text"
               value={preferredDoctorName}
-              onChange={(e) => {
-                setPreferredDoctorName(e.target.value);
-                setHasPreferredDoctor(!!e.target.value.trim());
+              onChange={(ev) => {
+                setPreferredDoctorName(ev.target.value);
+                setHasPreferredDoctor(!!ev.target.value.trim());
               }}
             />
           </div>
@@ -266,7 +474,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }) {
         </label>
       </div>
 
-      {/* Current Insurer */}
+      {/* 5) Current Insurer */}
       <div style={{ marginTop: '1rem' }}>
         <label>Current Insurer: </label>
         <select
@@ -277,13 +485,13 @@ export default function InputPanel({ userInputs, onUserInputsChange }) {
             if (!val) {
               setCurrentInsurer('I have no insurer');
             } else {
-              const found = insurerList.find((ins: any) => ins.bag_code === val);
-              if (found) setCurrentInsurer(found.name);
+              const found = insurerList.find((ins) => ins.bag_code === val);
+              setCurrentInsurer(found ? found.name : 'Unknown insurer');
             }
           }}
         >
           <option value="">I have no insurer</option>
-          {insurerList.map((ins: any) => (
+          {insurerList.map((ins) => (
             <option key={ins.id} value={ins.bag_code}>
               {ins.name}
             </option>
@@ -291,7 +499,7 @@ export default function InputPanel({ userInputs, onUserInputsChange }) {
         </select>
       </div>
 
-      {/* Current Plan dropdown from planList */}
+      {/* 6) Current Plan => grouped in fixed order */}
       {currentInsurerBagCode && (
         <div style={{ marginTop: '0.5rem' }}>
           <label>Current Plan: </label>
@@ -300,14 +508,105 @@ export default function InputPanel({ userInputs, onUserInputsChange }) {
             onChange={(e) => setCurrentPlan(e.target.value)}
           >
             <option value="">(None)</option>
-            {planList.map((p: any) => (
-              <option key={p.distinctTarif} value={p.distinctTarif}>
-                {p.distinctLabel}
-              </option>
-            ))}
+            {planTypeOrder.map((typ) => {
+              const arr = groupPlansByType(planList)[typ] || [];
+              if (!arr.length) return null; // skip empty group
+              const label = planTypeLabels[typ] || 'Other plan types';
+              return (
+                <optgroup key={typ} label={label}>
+                  {arr.map((p) => (
+                    <option key={p.distinctTarif} value={p.distinctTarif}>
+                      {p.distinctLabel}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
         </div>
       )}
+
+      {/* 7) Save profile + name */}
+      <div style={{ marginTop: '1rem' }}>
+        <label>Profile Name: </label>
+        <input
+          type="text"
+          value={profileName}
+          onChange={(e) => setProfileName(e.target.value)}
+        />
+      </div>
+      <button
+        style={{
+          marginTop: '0.5rem',
+          padding: '0.5rem 1rem',
+          background: canSave() ? '#2F62F4' : '#ccc',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: canSave() ? 'pointer' : 'default',
+        }}
+        onClick={handleSaveProfile}
+        disabled={!canSave()}
+      >
+        Save Profile
+      </button>
+
+      {/* 8) Saved profiles => load or delete */}
+      <div style={{ marginTop: '1rem', background: '#fafafa', padding: '0.5rem' }}>
+        <h4>Saved Profiles</h4>
+        {savedProfiles.length === 0 ? (
+          <p>No profiles saved yet.</p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '4px' }}>ID</th>
+                <th style={{ textAlign: 'left', padding: '4px' }}>Profile Name</th>
+                <th style={{ textAlign: 'left', padding: '4px' }}>Year</th>
+                <th style={{ textAlign: 'left', padding: '4px' }}>Plan</th>
+                <th style={{ textAlign: 'left', padding: '4px' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {savedProfiles.map((p) => (
+                <tr key={p.id}>
+                  <td style={{ padding: '4px' }}>{p.id}</td>
+                  <td style={{ padding: '4px' }}>
+                    <span
+                      style={{ color: 'blue', cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={() => handleLoadProfile(p)}
+                    >
+                      {p.profile_name}
+                    </span>
+                  </td>
+                  <td style={{ padding: '4px' }}>{p.year_of_birth}</td>
+                  <td style={{ padding: '4px' }}>{p.current_plan}</td>
+                  <td style={{ padding: '4px' }}>
+                    <button
+                      style={{ background: 'red', color: '#fff', border: 'none', cursor: 'pointer' }}
+                      onClick={() => handleDeleteProfile(p.id)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
+
+  // check if user can save
+  function canSave() {
+    const ak = computeAltersklasse(yearOfBirth);
+    return Boolean(
+      yearOfBirth && yearOfBirth !== 0 &&
+      selectedPostal &&
+      (ak === 'AKL-KIN' ? franchise >= 0 : franchise >= 300) &&
+      currentPlan &&
+      profileName.trim() !== ''
+    );
+  }
 }

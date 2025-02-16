@@ -2,7 +2,6 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
-// Build dynamic WHERE
 function buildWhereClause(params: any) {
   const whereParts: string[] = [];
   const values: any[] = [];
@@ -34,7 +33,10 @@ function buildWhereClause(params: any) {
     idx++;
   }
 
-  const whereClause = whereParts.length ? 'WHERE ' + whereParts.join(' AND ') : '';
+  const whereClause = whereParts.length
+    ? 'WHERE ' + whereParts.join(' AND ')
+    : '';
+
   return { whereClause, values };
 }
 
@@ -56,8 +58,6 @@ export async function GET(request: Request) {
       unfalleinschluss
     });
 
-    // We'll return a single row per premium, plus an insurer name,
-    // and a plan_label that merges tarifbezeichnung or fallback tarif.
     const sql = `
       SELECT p.id,
              p.tarif,
@@ -67,10 +67,7 @@ export async function GET(request: Request) {
              p.altersklasse,
              p.praemie,
              i.name AS insurer_name,
-             COALESCE(
-               NULLIF(p.tarifbezeichnung, ''),
-               p.tarif
-             ) AS plan_label
+             COALESCE(NULLIF(p.tarifbezeichnung,''), p.tarif) AS plan_label
       FROM premiums p
       LEFT JOIN insurers i
         ON p.bag_code = i.bag_code
@@ -79,7 +76,6 @@ export async function GET(request: Request) {
       LIMIT 300
     `;
     const result = await pool.query(sql, values);
-
     return NextResponse.json(result.rows);
   } catch (error: any) {
     console.error('Error in /api/premiums:', error);

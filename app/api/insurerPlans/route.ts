@@ -38,7 +38,9 @@ function buildWhereClause(params: any) {
     idx++;
   }
 
-  const whereClause = whereParts.length ? 'WHERE ' + whereParts.join(' AND ') : '';
+  const whereClause = whereParts.length
+    ? 'WHERE ' + whereParts.join(' AND ')
+    : '';
   return { whereClause, values };
 }
 
@@ -61,11 +63,11 @@ export async function GET(request: Request) {
       unfalleinschluss,
     });
 
-    // Distinct on COALESCE(tarifbezeichnung, tarif)
     const sql = `
       SELECT DISTINCT ON (COALESCE(NULLIF(p.tarifbezeichnung,''), p.tarif))
         p.tarif AS "distinctTarif",
-        COALESCE(NULLIF(p.tarifbezeichnung,''), p.tarif) AS "distinctLabel"
+        COALESCE(NULLIF(p.tarifbezeichnung,''), p.tarif) AS "distinctLabel",
+        p.tariftyp
       FROM premiums p
       ${whereClause}
       ORDER BY COALESCE(NULLIF(p.tarifbezeichnung,''), p.tarif) ASC
