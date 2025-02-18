@@ -1,208 +1,196 @@
+// app/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import plansData from '../data/plans.json';
+import { useRouter } from 'next/navigation';
 
-//
-// 1) Define the Plan interface
-//
-interface Plan {
-  id: number;
-  insurer: string;
-  planType: string;
-  franchise: number;
-  annualPremium: number;
-  planName: string;
+/** 
+ * Helper: given a YOB, return child or adult franchise array.
+ */
+function getFranchiseOptions(yob: number): number[] {
+  // If YOB is invalid => treat them as adult
+  if (yob < 1900 || yob > 2025) {
+    return [300, 500, 1000, 1500, 2000, 2500];
+  }
+  const ageIn2025 = 2025 - yob;
+  if (ageIn2025 <= 18) {
+    // child
+    return [0, 100, 200, 300, 400, 500, 600];
+  }
+  // adult
+  return [300, 500, 1000, 1500, 2000, 2500];
 }
 
-//
-// 2) Define the props for each step
-//
-type WizardProps = {
-  formData: {
-    name: string;
-    postalCode: string;
-    yearOfBirth: string;
-    franchise: number;
-    currentInsurer: string;
-  };
-  setFormData: React.Dispatch<
-    React.SetStateAction<{
-      name: string;
-      postalCode: string;
-      yearOfBirth: string;
-      franchise: number;
-      currentInsurer: string;
-    }>
-  >;
-  handleNext?: () => void;
-  handleBack?: () => void;
-  filteredPlans?: Plan[];
-  setFilteredPlans?: React.Dispatch<React.SetStateAction<Plan[]>>;
-};
+export default function HomePage() {
+  const router = useRouter();
 
-//
-// 3) Main Wizard Component (no return-type annotation)
-//
-export default function WizardPage() {
-  const [step, setStep] = useState<number>(1);
+  // Keep YOB as a string so user can type partial digits
+  const [yobInput, setYobInput] = useState('');
+  const [franchise, setFranchise] = useState<number | ''>('');
 
-  const [formData, setFormData] = useState({
-    name: '',
-    postalCode: '',
-    yearOfBirth: '',
-    franchise: 300,
-    currentInsurer: ''
-  });
+  const [franchiseOptions, setFranchiseOptions] = useState<number[]>([]);
+  const [isButtonPressed, setIsButtonPressed] = useState(false);
 
-  const [filteredPlans, setFilteredPlans] = useState<Plan[]>([]);
-
-  function handleNext() {
-    setStep((prev) => prev + 1);
-  }
-
-  function handleBack() {
-    setStep((prev) => prev - 1);
-  }
-
-  return (
-    <div style={{ margin: '2rem' }}>
-      <h1>Insurance Wizard</h1>
-
-      {step === 1 && (
-        <StepOne
-          formData={formData}
-          setFormData={setFormData}
-          handleNext={handleNext}
-        />
-      )}
-
-      {step === 2 && (
-        <StepTwo
-          formData={formData}
-          setFormData={setFormData}
-          handleNext={handleNext}
-          handleBack={handleBack}
-        />
-      )}
-
-      {step === 3 && (
-        <ResultsStep
-          formData={formData}
-          setFormData={setFormData}   // ADD THIS LINE
-          filteredPlans={filteredPlans}
-          setFilteredPlans={setFilteredPlans}
-          handleBack={handleBack}
-        />
-      )}
-    </div>
-  );
-}
-
-//
-// 4) Sub-Components: Remove any ": JSX.Element" return types
-//
-
-function StepOne({ formData, setFormData, handleNext }: WizardProps) {
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  }
-
-  return (
-    <div>
-      <h2>Step 1: Personal Info</h2>
-      <div>
-        <label>Name:</label>
-        <input name="name" value={formData.name} onChange={handleChange} />
-      </div>
-
-      <div>
-        <label>Postal Code:</label>
-        <input name="postalCode" value={formData.postalCode} onChange={handleChange} />
-      </div>
-
-      <div>
-        <label>Year of Birth:</label>
-        <input name="yearOfBirth" value={formData.yearOfBirth} onChange={handleChange} />
-      </div>
-
-      <button onClick={handleNext}>Next</button>
-    </div>
-  );
-}
-
-function StepTwo({ formData, setFormData, handleNext, handleBack }: WizardProps) {
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    const { name, value } = e.target;
-    // if name=franchise, convert it to number
-    setFormData((prev) => ({ ...prev, [name]: name === 'franchise' ? Number(value) : value }));
-  }
-
-  return (
-    <div>
-      <h2>Step 2: Insurance Details</h2>
-      <div>
-        <label>Franchise:</label>
-        <select name="franchise" value={formData.franchise} onChange={handleChange}>
-          <option value="300">300</option>
-          <option value="500">500</option>
-          <option value="1000">1000</option>
-          <option value="1500">1500</option>
-          <option value="2000">2000</option>
-          <option value="2500">2500</option>
-        </select>
-      </div>
-
-      <div>
-        <label>Current Insurer:</label>
-        <input
-          name="currentInsurer"
-          value={formData.currentInsurer}
-          onChange={handleChange}
-        />
-      </div>
-
-      <button onClick={handleBack}>Back</button>
-      <button onClick={handleNext}>Next</button>
-    </div>
-  );
-}
-
-function ResultsStep({
-  formData,
-  filteredPlans = [],
-  setFilteredPlans,
-  handleBack
-}: WizardProps) {
   useEffect(() => {
-    if (!setFilteredPlans) return;
+    // parse YOB from string
+    const parsed = parseInt(yobInput, 10);
+    const validYOB = !Number.isNaN(parsed) ? parsed : 0;
+    const newOptions = getFranchiseOptions(validYOB);
 
-    const newPlans = (plansData as Plan[]).filter(
-      (plan) => plan.franchise === formData.franchise
-    );
-    setFilteredPlans(newPlans);
-  }, [formData.franchise, setFilteredPlans]);
+    setFranchiseOptions(newOptions);
+
+    // If user’s chosen franchise not in new array => reset
+    if (!newOptions.includes(Number(franchise))) {
+      setFranchise('');
+    }
+  }, [yobInput]);
+
+  // Button enabled if we have both YOB & franchise
+  const isDisabled = !yobInput || !franchise;
+
+  function handleButtonClick() {
+    if (isDisabled) return;
+
+    const parsedYob = parseInt(yobInput, 10);
+    // Validate
+    if (Number.isNaN(parsedYob) || parsedYob < 1900 || parsedYob > 2025) {
+      alert('Please enter a valid Year of Birth (1900–2025).');
+      return;
+    }
+    router.push(`/wizard?yob=${parsedYob}&franchise=${franchise}`);
+  }
+
+  // ------------------------- STYLES -------------------------
+  const containerStyle: React.CSSProperties = {
+    minHeight: '100vh',
+    backgroundColor: '#007BFF', // Blue background
+    color: '#fff',              // White text
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '2rem'
+  };
+
+  const titleStyle: React.CSSProperties = {
+    fontSize: '2.5rem',
+    textAlign: 'center',
+    marginBottom: '1rem',
+    lineHeight: 1.2
+  };
+
+  const subtitleStyle: React.CSSProperties = {
+    fontSize: '1.2rem',
+    textAlign: 'center',
+    marginBottom: '2rem'
+  };
+
+  const highlightNumberStyle: React.CSSProperties = {
+    color: '#000',
+    backgroundColor: '#fff',
+    padding: '0 0.3rem',
+    borderRadius: '3px'
+  };
+
+  const boxStyle: React.CSSProperties = {
+    backgroundColor: '#fff',
+    borderRadius: '10px',
+    color: '#000',
+    width: '300px',
+    padding: '1rem',
+    marginBottom: '1rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem'
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontWeight: 500,
+    marginBottom: '0.2rem'
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '0.5rem',
+    borderRadius: '5px',
+    border: '1px solid #ccc'
+  };
+
+  const buttonStyle: React.CSSProperties = {
+    width: '300px',
+    padding: '0.75rem',
+    borderRadius: '10px',
+    border: 'none',
+    fontWeight: 600,
+    fontSize: '1rem',
+    cursor: isDisabled ? 'not-allowed' : 'pointer',
+    backgroundColor: isButtonPressed ? '#28a745' : '#003b8e', 
+    color: '#fff',
+    textAlign: 'center'
+  };
+  // ----------------------------------------------------------
 
   return (
-    <div>
-      <h2>Step 3: Plan Results</h2>
-      <p>Franchise selected: {formData.franchise}</p>
-      <p>Total results: {filteredPlans.length}</p>
+    <div style={containerStyle}>
+      {/* Title */}
+      <h1 style={titleStyle}>
+        Overpaying for mandatory <br />
+        Swiss health insurance
+      </h1>
 
-      {filteredPlans.map((plan) => (
-        <div
-          key={plan.id}
-          style={{ border: '1px solid #ccc', margin: '1rem 0', padding: '1rem' }}
-        >
-          <h3>Insurer: {plan.insurer}</h3>
-          <p>Plan Type: {plan.planType}</p>
-          <p>Plan Name: {plan.planName}</p>
-          <p>Annual Premium: {plan.annualPremium}</p>
+      {/* Subtitle (768 in black on white) */}
+      <p style={subtitleStyle}>
+        Health insurance costs rose by 8.7% in 2024 and will continue to rise.
+        <br />
+        Our users saved on average <span style={highlightNumberStyle}>768</span> CHF
+      </p>
+
+      {/* Box with Year of Birth & Own Risk */}
+      <div style={boxStyle}>
+        {/* Year of Birth */}
+        <div>
+          <div style={labelStyle}>Year of Birth</div>
+          <input
+            type="text"
+            style={inputStyle}
+            value={yobInput}
+            onChange={(e) => {
+              // Optionally filter out non-digits
+              // if (!/^\d*$/.test(e.target.value)) return;
+              setYobInput(e.target.value);
+            }}
+          />
         </div>
-      ))}
 
-      <button onClick={handleBack}>Back</button>
+        {/* Franchise => child or adult => from franchiseOptions */}
+        <div>
+          <div style={labelStyle}>Own risk</div>
+          <select
+            style={inputStyle}
+            value={franchise}
+            onChange={(e) => setFranchise(Number(e.target.value))}
+          >
+            <option value="">(Select)</option>
+            {franchiseOptions.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Button */}
+      <button
+        style={buttonStyle}
+        disabled={isDisabled}
+        onMouseDown={() => setIsButtonPressed(true)}
+        onMouseUp={() => setIsButtonPressed(false)}
+        onMouseLeave={() => setIsButtonPressed(false)}
+        onClick={handleButtonClick}
+      >
+        Save on health insurance
+      </button>
     </div>
   );
 }
