@@ -62,19 +62,16 @@ function buildPlansQuery(bagCode: string, inputs: any) {
   return '/api/insurerPlans?' + qs.toString();
 }
 
-// -----------------------------------------------------
-// 1) Define the props interface, adding 'initialPlz?: string'
-// -----------------------------------------------------
 interface InputPanelProps {
   userInputs: any;
   onUserInputsChange: (vals: any) => void;
-  initialPlz?: string; // optional prop for pre-filling the postal code
+  initialPlz?: string;
 }
 
 export default function InputPanel({
   userInputs,
   onUserInputsChange,
-  initialPlz = '' // default to empty if nothing passed
+  initialPlz = ''
 }: InputPanelProps) {
   // =========== States for main filtering
   const [yearOfBirth, setYearOfBirth] = useState(userInputs.yearOfBirth || 0);
@@ -82,6 +79,18 @@ export default function InputPanel({
   const [unfalleinschluss, setUnfalleinschluss] = useState(
     userInputs.unfalleinschluss || 'MIT-UNF'
   );
+
+  // Re-sync from userInputs if changed
+  useEffect(() => {
+    if (userInputs.yearOfBirth !== yearOfBirth) {
+      setYearOfBirth(userInputs.yearOfBirth || 0);
+    }
+  }, [userInputs.yearOfBirth]);
+  useEffect(() => {
+    if (userInputs.franchise !== franchise) {
+      setFranchise(userInputs.franchise || 0);
+    }
+  }, [userInputs.franchise]);
 
   // =========== location
   const [plzInput, setPlzInput] = useState('');
@@ -105,9 +114,7 @@ export default function InputPanel({
   const [profileName, setProfileName] = useState('');
   const [savedProfiles, setSavedProfiles] = useState<any[]>([]);
 
-  // -----------------------------------------------------
-  // 2) If initialPlz is provided, set 'plzInput' on mount
-  // -----------------------------------------------------
+  // If initialPlz is provided, set 'plzInput' on mount
   useEffect(() => {
     if (initialPlz && !plzInput) {
       setPlzInput(initialPlz);
@@ -183,11 +190,7 @@ export default function InputPanel({
     selectedPostal
   ]);
 
-  // ==========================
-  // 3) Re-sync to parent
-  // ==========================
-  // Because the parent uses `useCallback`, this won't infinite loop.
-  // The function reference is stable, so the effect won't keep firing.
+  // re-sync to parent
   useEffect(() => {
     const ak = computeAltersklasse(yearOfBirth);
     const updated = {
@@ -246,14 +249,9 @@ export default function InputPanel({
     return grouped;
   }
   const grouped = groupPlansByType(planList);
-
-  // dynamic franchise
   const ak = computeAltersklasse(yearOfBirth);
   const franchiseOptions = getFranchiseOptions(ak);
 
-  // ================================
-  // Save profile => reset fields
-  // ================================
   async function handleSaveProfile() {
     if (!selectedPostal) {
       alert('Please select a postal row first.');
@@ -310,7 +308,6 @@ export default function InputPanel({
     setCurrentPlan('');
   }
 
-  // delete row
   async function handleDeleteProfile(id: number) {
     if (!confirm('Delete profile ' + id + '?')) return;
     try {
@@ -326,7 +323,6 @@ export default function InputPanel({
     }
   }
 
-  // load a profile => re-create selectedPostal
   function handleLoadProfile(p: any) {
     const newPostal = {
       id: p.postal_id,
@@ -354,10 +350,7 @@ export default function InputPanel({
     alert('Profile loaded => ' + p.profile_name);
   }
 
-  // can user save?
   function canSave() {
-    // if child => franchise >=0; else => >=300
-    const ak = computeAltersklasse(yearOfBirth);
     return Boolean(
       yearOfBirth && yearOfBirth !== 0 &&
       selectedPostal &&
@@ -367,52 +360,56 @@ export default function InputPanel({
     );
   }
 
-  return (
-    <div style={{ padding: '1rem' }}>
-      <h3>Input Panel</h3>
+  // =========================
+  // NEW STYLES (BIGGER FONTS)
+  // =========================
+  const boxStyle: React.CSSProperties = {
+    background: '#fff',
+    borderRadius: '10px',
+    marginBottom: '1rem',
+    padding: '1rem'
+  };
+  const titleStyle: React.CSSProperties = {
+    marginTop: 0,
+    fontSize: '1.6rem',
+    fontWeight: 'bold',
+    marginBottom: '0.8rem',
+  };
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: '1.1rem',
+    marginBottom: '0.3rem',
+    fontWeight: 500,
+  };
+  const inputStyle: React.CSSProperties = {
+    fontSize: '1rem',
+    padding: '0.6rem',
+    width: '100%',
+    boxSizing: 'border-box',
+    marginBottom: '0.8rem',
+  };
 
-      {/* Year => text => parse => no arrow */}
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label>Year of Birth: </label>
+  return (
+    <div>
+      {/* Box 1: "Own data" */}
+      <div style={boxStyle}>
+        <h4 style={titleStyle}>Own data</h4>
+        
+        {/* Year of Birth */}
+        <label style={labelStyle}>Year of Birth</label>
         <input
           type="text"
           inputMode="numeric"
+          style={inputStyle}
           value={yearOfBirth || ''}
           onChange={handleYearInput}
         />
-      </div>
 
-      {/* Accident Coverage */}
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label>Accident Coverage: </label>
-        <select
-          value={unfalleinschluss}
-          onChange={(e) => setUnfalleinschluss(e.target.value)}
-        >
-          <option value="MIT-UNF">With Accident</option>
-          <option value="OHN-UNF">Without Accident</option>
-        </select>
-      </div>
-
-      {/* Franchise => dynamic */}
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label>Franchise: </label>
-        <select
-          value={franchise}
-          onChange={(e) => setFranchise(Number(e.target.value))}
-        >
-          <option value={0}>--</option>
-          {franchiseOptions.map((f) => (
-            <option key={f} value={f}>{f}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* PLZ */}
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label>PLZ: </label>
+        {/* Postal Code */}
+        <label style={labelStyle}>Postal code</label>
         <input
           type="text"
+          style={inputStyle}
           value={plzInput}
           onChange={(e) => {
             setPlzInput(e.target.value);
@@ -432,22 +429,49 @@ export default function InputPanel({
             ))}
           </ul>
         )}
+        {/* 
+          Removed the old debug box that showed "Selected: 8703 - Erlenbach..."
+          as requested 
+        */}
       </div>
 
-      {selectedPostal && (
-        <div style={{ background: '#f5f5f5', padding: '0.5rem' }}>
-          <p>Selected: {selectedPostal.plz} - {selectedPostal.ort_localite}</p>
-          <p>
-            Canton: {selectedPostal.kanton}, Region: PR-REG CH
-            {selectedPostal.region_int}
-          </p>
-        </div>
-      )}
+      {/* Box 2: "Insurance preferences" */}
+      <div style={boxStyle}>
+        <h4 style={titleStyle}>Insurance preferences</h4>
 
-      {/* Current Insurer */}
-      <div style={{ marginTop: '1rem' }}>
-        <label>Current Insurer: </label>
+        {/* Own Risk (Franchise) */}
+        <label style={labelStyle}>Own risk</label>
         <select
+          style={inputStyle}
+          value={franchise}
+          onChange={(e) => setFranchise(Number(e.target.value))}
+        >
+          <option value={0}>--</option>
+          {franchiseOptions.map((f) => (
+            <option key={f} value={f}>{f}</option>
+          ))}
+        </select>
+
+        {/* Accident Coverage */}
+        <label style={labelStyle}>Accident coverage</label>
+        <select
+          style={inputStyle}
+          value={unfalleinschluss}
+          onChange={(e) => setUnfalleinschluss(e.target.value)}
+        >
+          <option value="MIT-UNF">With Accident</option>
+          <option value="OHN-UNF">Without Accident</option>
+        </select>
+      </div>
+
+      {/* Box 3: "Current plan" */}
+      <div style={boxStyle}>
+        <h4 style={titleStyle}>Current plan</h4>
+
+        {/* Current Insurer */}
+        <label style={labelStyle}>Current Insurer</label>
+        <select
+          style={inputStyle}
           value={currentInsurerBagCode}
           onChange={(e) => {
             const val = e.target.value;
@@ -467,68 +491,73 @@ export default function InputPanel({
             </option>
           ))}
         </select>
+
+        {/* Current Plan */}
+        {currentInsurerBagCode && (
+          <>
+            <label style={labelStyle}>Current Plan</label>
+            <select
+              style={inputStyle}
+              value={currentPlan}
+              onChange={(e) => setCurrentPlan(e.target.value)}
+            >
+              <option value="">(None)</option>
+              {planTypeOrder.map((typ) => {
+                const groupArr = groupPlansByType(planList)[typ] || [];
+                if (!groupArr.length) return null;
+                const label = planTypeLabels[typ];
+                return (
+                  <optgroup key={typ} label={label}>
+                    {groupArr.map((p) => (
+                      <option key={p.distinctTarif} value={p.distinctTarif}>
+                        {p.distinctLabel}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
+          </>
+        )}
       </div>
 
-      {/* Current Plan => grouped in fixed order */}
-      {currentInsurerBagCode && (
-        <div style={{ marginTop: '0.5rem' }}>
-          <label>Current Plan: </label>
-          <select
-            value={currentPlan}
-            onChange={(e) => setCurrentPlan(e.target.value)}
-          >
-            <option value="">(None)</option>
-            {planTypeOrder.map((typ) => {
-              const groupArr = groupPlansByType(planList)[typ] || [];
-              if (!groupArr.length) return null;
-              const label = planTypeLabels[typ];
-              return (
-                <optgroup key={typ} label={label}>
-                  {groupArr.map((p) => (
-                    <option key={p.distinctTarif} value={p.distinctTarif}>
-                      {p.distinctLabel}
-                    </option>
-                  ))}
-                </optgroup>
-              );
-            })}
-          </select>
-        </div>
-      )}
+      {/* Box 4: "Profile name" */}
+      <div style={boxStyle}>
+        <h4 style={titleStyle}>Profile name</h4>
 
-      {/* Profile Name + Save */}
-      <div style={{ marginTop: '1rem' }}>
-        <label>Profile Name: </label>
+        <label style={labelStyle}>Profile Name</label>
         <input
           type="text"
+          style={inputStyle}
           value={profileName}
           onChange={(e) => setProfileName(e.target.value)}
         />
+
+        <button
+          style={{
+            padding: '0.6rem 1rem',
+            background: canSave() ? '#2F62F4' : '#ccc',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: canSave() ? 'pointer' : 'default',
+            fontSize: '1rem',
+            marginTop: '0.5rem'
+          }}
+          onClick={handleSaveProfile}
+          disabled={!canSave()}
+        >
+          Save Profile
+        </button>
       </div>
 
-      <button
-        style={{
-          marginTop: '0.5rem',
-          padding: '0.5rem 1rem',
-          background: canSave() ? '#2F62F4' : '#ccc',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: canSave() ? 'pointer' : 'default',
-        }}
-        onClick={handleSaveProfile}
-        disabled={!canSave()}
-      >
-        Save Profile
-      </button>
-
-      {/* Saved profiles => load or delete */}
-      <div style={{ marginTop: '1rem', background: '#fafafa', padding: '0.5rem' }}>
-        <h4>Saved Profiles</h4>
+      {/* Box 5: "Saved profiles" */}
+      <div style={boxStyle}>
+        <h4 style={titleStyle}>Saved profiles</h4>
         {savedProfiles.length === 0 ? (
           <p>No profiles saved yet.</p>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '1rem' }}>
             <thead>
               <tr>
                 <th style={{ textAlign: 'left', padding: '4px' }}>ID</th>

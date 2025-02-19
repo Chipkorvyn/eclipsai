@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
  * Helper: given a YOB, return child or adult franchise array.
  */
 function getFranchiseOptions(yob: number): number[] {
-  // If YOB is invalid => treat them as adult
+  // If YOB is invalid => treat as adult
   if (yob < 1900 || yob > 2025) {
     return [300, 500, 1000, 1500, 2000, 2500];
   }
@@ -24,47 +24,44 @@ function getFranchiseOptions(yob: number): number[] {
 export default function HomePage() {
   const router = useRouter();
 
-  // Keep YOB as a string so user can type partial digits
+  // We'll keep the YOB input in a string so user can type partial digits
   const [yobInput, setYobInput] = useState('');
   const [franchise, setFranchise] = useState<number | ''>('');
-
   const [franchiseOptions, setFranchiseOptions] = useState<number[]>([]);
   const [isButtonPressed, setIsButtonPressed] = useState(false);
 
+  // Whenever the user changes the YOB input, recalc franchise options
   useEffect(() => {
-    // parse YOB from string
-    const parsed = parseInt(yobInput, 10);
-    const validYOB = !Number.isNaN(parsed) ? parsed : 0;
-    const newOptions = getFranchiseOptions(validYOB);
+    const parsedYob = parseInt(yobInput, 10);
+    const validYOB = !Number.isNaN(parsedYob) ? parsedYob : 0;
+    const opts = getFranchiseOptions(validYOB);
+    setFranchiseOptions(opts);
 
-    setFranchiseOptions(newOptions);
-
-    // If user’s chosen franchise not in new array => reset
-    if (!newOptions.includes(Number(franchise))) {
+    // If the chosen franchise is not in the new array => reset
+    if (!opts.includes(Number(franchise))) {
       setFranchise('');
     }
   }, [yobInput]);
 
-  // Button enabled if we have both YOB & franchise
   const isDisabled = !yobInput || !franchise;
 
   function handleButtonClick() {
     if (isDisabled) return;
 
     const parsedYob = parseInt(yobInput, 10);
-    // Validate
     if (Number.isNaN(parsedYob) || parsedYob < 1900 || parsedYob > 2025) {
       alert('Please enter a valid Year of Birth (1900–2025).');
       return;
     }
+
     router.push(`/wizard?yob=${parsedYob}&franchise=${franchise}`);
   }
 
-  // ------------------------- STYLES -------------------------
+  // ---------------------- STYLES ----------------------
   const containerStyle: React.CSSProperties = {
     minHeight: '100vh',
-    backgroundColor: '#007BFF', // Blue background
-    color: '#fff',              // White text
+    backgroundColor: '#007BFF', // blue background
+    color: '#fff',              // white text
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -72,19 +69,21 @@ export default function HomePage() {
     padding: '2rem'
   };
 
+  // Slightly bigger title & subtitle than before
   const titleStyle: React.CSSProperties = {
-    fontSize: '2.5rem',
+    fontSize: '3rem',
     textAlign: 'center',
-    marginBottom: '1rem',
+    marginBottom: '1.2rem',
     lineHeight: 1.2
   };
 
   const subtitleStyle: React.CSSProperties = {
-    fontSize: '1.2rem',
+    fontSize: '1.4rem',
     textAlign: 'center',
     marginBottom: '2rem'
   };
 
+  // The "768" in black on white
   const highlightNumberStyle: React.CSSProperties = {
     color: '#000',
     backgroundColor: '#fff',
@@ -124,28 +123,27 @@ export default function HomePage() {
     fontWeight: 600,
     fontSize: '1rem',
     cursor: isDisabled ? 'not-allowed' : 'pointer',
-    backgroundColor: isButtonPressed ? '#28a745' : '#003b8e', 
+    backgroundColor: isButtonPressed ? '#28a745' : '#003b8e', // dark blue normally, #28a745 on press
     color: '#fff',
     textAlign: 'center'
   };
-  // ----------------------------------------------------------
+  // ----------------------------------------------------
 
   return (
     <div style={containerStyle}>
-      {/* Title */}
+      {/* Big title with question mark */}
       <h1 style={titleStyle}>
-        Overpaying for mandatory <br />
-        Swiss health insurance
+        Overpaying for Swiss Insurance?
       </h1>
 
-      {/* Subtitle (768 in black on white) */}
+      {/* Larger subtitle, '768' in black on white */}
       <p style={subtitleStyle}>
         Health insurance costs rose by 8.7% in 2024 and will continue to rise.
         <br />
         Our users saved on average <span style={highlightNumberStyle}>768</span> CHF
       </p>
 
-      {/* Box with Year of Birth & Own Risk */}
+      {/* Box with Year of Birth + Franchise */}
       <div style={boxStyle}>
         {/* Year of Birth */}
         <div>
@@ -155,8 +153,6 @@ export default function HomePage() {
             style={inputStyle}
             value={yobInput}
             onChange={(e) => {
-              // Optionally filter out non-digits
-              // if (!/^\d*$/.test(e.target.value)) return;
               setYobInput(e.target.value);
             }}
           />
@@ -180,7 +176,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Button */}
+      {/* Button => Save on health insurance */}
       <button
         style={buttonStyle}
         disabled={isDisabled}
