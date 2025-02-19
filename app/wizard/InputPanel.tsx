@@ -68,7 +68,7 @@ function buildPlansQuery(bagCode: string, inputs: any) {
 interface InputPanelProps {
   userInputs: any;
   onUserInputsChange: (vals: any) => void;
-  initialPlz?: string; // NEW optional prop for pre-filling the postal code
+  initialPlz?: string; // optional prop for pre-filling the postal code
 }
 
 export default function InputPanel({
@@ -183,7 +183,11 @@ export default function InputPanel({
     selectedPostal
   ]);
 
-  // re-sync to parent
+  // ==========================
+  // 3) Re-sync to parent
+  // ==========================
+  // Because the parent uses `useCallback`, this won't infinite loop.
+  // The function reference is stable, so the effect won't keep firing.
   useEffect(() => {
     const ak = computeAltersklasse(yearOfBirth);
     const updated = {
@@ -241,14 +245,15 @@ export default function InputPanel({
     }
     return grouped;
   }
-
-  // (We also define planTypeOrder and planTypeLabels above, if needed)
   const grouped = groupPlansByType(planList);
+
   // dynamic franchise
   const ak = computeAltersklasse(yearOfBirth);
   const franchiseOptions = getFranchiseOptions(ak);
 
-  // save profile => reset fields after success
+  // ================================
+  // Save profile => reset fields
+  // ================================
   async function handleSaveProfile() {
     if (!selectedPostal) {
       alert('Please select a postal row first.');
