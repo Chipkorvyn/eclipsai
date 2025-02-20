@@ -35,7 +35,6 @@ const planTypeLabels: Record<string,string> = {
 };
 
 function groupPlansByType(plans: any[]) {
-  // Initialize each group so we keep the correct order
   const grouped: Record<string, any[]> = {
     'TAR-BASE': [],
     'TAR-HAM':  [],
@@ -80,7 +79,6 @@ export default function InputPanel({
     userInputs.unfalleinschluss || 'MIT-UNF'
   );
 
-  // Re-sync from userInputs if changed
   useEffect(() => {
     if (userInputs.yearOfBirth !== yearOfBirth) {
       setYearOfBirth(userInputs.yearOfBirth || 0);
@@ -126,7 +124,7 @@ export default function InputPanel({
     fetch('/api/insurers')
       .then((r) => r.json())
       .then((data) => setInsurerList(data))
-      .catch((err) => console.error('fetchInsurers error:', err));
+      .catch(() => {});
   }, []);
 
   // PLZ autocomplete
@@ -150,7 +148,6 @@ export default function InputPanel({
     setPostalMatches([]);
   }
 
-  // year => text => parse => no arrow spinners
   function handleYearInput(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value.trim();
     const num = parseInt(val, 10);
@@ -228,13 +225,12 @@ export default function InputPanel({
       if (data.success) {
         setSavedProfiles(data.profiles);
       }
-    } catch (err) {
-      console.error('fetchProfiles error:', err);
+    } catch {
+      // ignore
     }
   }
 
-  // group plan list => fixed order
-  function groupPlansByType(planList: any[]) {
+  function groupPlansByTypeLocal(planList: any[]) {
     const grouped: Record<string, any[]> = {
       'TAR-BASE': [],
       'TAR-HAM':  [],
@@ -248,7 +244,7 @@ export default function InputPanel({
     }
     return grouped;
   }
-  const grouped = groupPlansByType(planList);
+  const grouped = groupPlansByTypeLocal(planList);
   const ak = computeAltersklasse(yearOfBirth);
   const franchiseOptions = getFranchiseOptions(ak);
 
@@ -260,8 +256,6 @@ export default function InputPanel({
     try {
       const body = {
         profileName,
-
-        // entire selectedPostal
         postalId: selectedPostal.id,
         postalPlz: selectedPostal.plz,
         postalOrtLocalite: selectedPostal.ort_localite,
@@ -287,12 +281,11 @@ export default function InputPanel({
         alert('Profile saved => ' + data.profile.profile_name);
         setProfileName('');
         fetchProfiles();
-        resetAllFields(); // after saving
+        resetAllFields();
       } else {
         alert('Error saving => ' + data.error);
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert('Network error while saving');
     }
   }
@@ -318,7 +311,7 @@ export default function InputPanel({
       } else {
         alert('Delete error => ' + data.error);
       }
-    } catch (err) {
+    } catch {
       alert('Network error while deleting');
     }
   }
@@ -351,6 +344,7 @@ export default function InputPanel({
   }
 
   function canSave() {
+    const ak = computeAltersklasse(yearOfBirth);
     return Boolean(
       yearOfBirth && yearOfBirth !== 0 &&
       selectedPostal &&
@@ -361,7 +355,7 @@ export default function InputPanel({
   }
 
   // =========================
-  // NEW STYLES (BIGGER FONTS)
+  // STYLING for the Boxes
   // =========================
   const boxStyle: React.CSSProperties = {
     background: '#fff',
@@ -391,10 +385,104 @@ export default function InputPanel({
 
   return (
     <div>
-      {/* Box 1: "Own data" */}
+      {/*
+        REORDER the boxes:
+        1) Current plan
+        2) Profile name
+        3) Own data
+        4) Insurance preferences
+      */}
+
+      {/* Box 1: "Current plan" */}
+      <div style={boxStyle}>
+        <h4 style={titleStyle}>Current plan</h4>
+
+        {/* Current Insurer */}
+        <label style={labelStyle}>Current Insurer</label>
+        <select
+          style={inputStyle}
+          value={currentInsurerBagCode}
+          onChange={(e) => {
+            const val = e.target.value;
+            setCurrentInsurerBagCode(val);
+            if (!val) {
+              setCurrentInsurer('I have no insurer');
+            } else {
+              const found = insurerList.find((ins) => ins.bag_code === val);
+              setCurrentInsurer(found ? found.name : 'Unknown insurer');
+            }
+          }}
+        >
+          <option value="">I have no insurer</option>
+          {insurerList.map((ins) => (
+            <option key={ins.id} value={ins.bag_code}>
+              {ins.name}
+            </option>
+          ))}
+        </select>
+
+        {currentInsurerBagCode && (
+          <>
+            <label style={labelStyle}>Current Plan</label>
+            <select
+              style={inputStyle}
+              value={currentPlan}
+              onChange={(e) => setCurrentPlan(e.target.value)}
+            >
+              <option value="">(None)</option>
+              {planTypeOrder.map((typ) => {
+                const groupArr = groupPlansByType(planList)[typ] || [];
+                if (!groupArr.length) return null;
+                const label = planTypeLabels[typ];
+                return (
+                  <optgroup key={typ} label={label}>
+                    {groupArr.map((p) => (
+                      <option key={p.distinctTarif} value={p.distinctTarif}>
+                        {p.distinctLabel}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
+          </>
+        )}
+      </div>
+
+      {/* Box 2: "Profile name" */}
+      <div style={boxStyle}>
+        <h4 style={titleStyle}>Profile name</h4>
+
+        <label style={labelStyle}>Profile Name</label>
+        <input
+          type="text"
+          style={inputStyle}
+          value={profileName}
+          onChange={(e) => setProfileName(e.target.value)}
+        />
+
+        <button
+          style={{
+            padding: '0.6rem 1rem',
+            background: canSave() ? '#2F62F4' : '#ccc',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: canSave() ? 'pointer' : 'default',
+            fontSize: '1rem',
+            marginTop: '0.5rem'
+          }}
+          onClick={handleSaveProfile}
+          disabled={!canSave()}
+        >
+          Save Profile
+        </button>
+      </div>
+
+      {/* Box 3: "Own data" */}
       <div style={boxStyle}>
         <h4 style={titleStyle}>Own data</h4>
-        
+
         {/* Year of Birth */}
         <label style={labelStyle}>Year of Birth</label>
         <input
@@ -429,13 +517,9 @@ export default function InputPanel({
             ))}
           </ul>
         )}
-        {/* 
-          Removed the old debug box that showed "Selected: 8703 - Erlenbach..."
-          as requested 
-        */}
       </div>
 
-      {/* Box 2: "Insurance preferences" */}
+      {/* Box 4: "Insurance preferences" */}
       <div style={boxStyle}>
         <h4 style={titleStyle}>Insurance preferences</h4>
 
@@ -447,7 +531,7 @@ export default function InputPanel({
           onChange={(e) => setFranchise(Number(e.target.value))}
         >
           <option value={0}>--</option>
-          {franchiseOptions.map((f) => (
+          {getFranchiseOptions(computeAltersklasse(yearOfBirth)).map((f) => (
             <option key={f} value={f}>{f}</option>
           ))}
         </select>
@@ -462,93 +546,6 @@ export default function InputPanel({
           <option value="MIT-UNF">With Accident</option>
           <option value="OHN-UNF">Without Accident</option>
         </select>
-      </div>
-
-      {/* Box 3: "Current plan" */}
-      <div style={boxStyle}>
-        <h4 style={titleStyle}>Current plan</h4>
-
-        {/* Current Insurer */}
-        <label style={labelStyle}>Current Insurer</label>
-        <select
-          style={inputStyle}
-          value={currentInsurerBagCode}
-          onChange={(e) => {
-            const val = e.target.value;
-            setCurrentInsurerBagCode(val);
-            if (!val) {
-              setCurrentInsurer('I have no insurer');
-            } else {
-              const found = insurerList.find((ins) => ins.bag_code === val);
-              setCurrentInsurer(found ? found.name : 'Unknown insurer');
-            }
-          }}
-        >
-          <option value="">I have no insurer</option>
-          {insurerList.map((ins) => (
-            <option key={ins.id} value={ins.bag_code}>
-              {ins.name}
-            </option>
-          ))}
-        </select>
-
-        {/* Current Plan */}
-        {currentInsurerBagCode && (
-          <>
-            <label style={labelStyle}>Current Plan</label>
-            <select
-              style={inputStyle}
-              value={currentPlan}
-              onChange={(e) => setCurrentPlan(e.target.value)}
-            >
-              <option value="">(None)</option>
-              {planTypeOrder.map((typ) => {
-                const groupArr = groupPlansByType(planList)[typ] || [];
-                if (!groupArr.length) return null;
-                const label = planTypeLabels[typ];
-                return (
-                  <optgroup key={typ} label={label}>
-                    {groupArr.map((p) => (
-                      <option key={p.distinctTarif} value={p.distinctTarif}>
-                        {p.distinctLabel}
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </select>
-          </>
-        )}
-      </div>
-
-      {/* Box 4: "Profile name" */}
-      <div style={boxStyle}>
-        <h4 style={titleStyle}>Profile name</h4>
-
-        <label style={labelStyle}>Profile Name</label>
-        <input
-          type="text"
-          style={inputStyle}
-          value={profileName}
-          onChange={(e) => setProfileName(e.target.value)}
-        />
-
-        <button
-          style={{
-            padding: '0.6rem 1rem',
-            background: canSave() ? '#2F62F4' : '#ccc',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: canSave() ? 'pointer' : 'default',
-            fontSize: '1rem',
-            marginTop: '0.5rem'
-          }}
-          onClick={handleSaveProfile}
-          disabled={!canSave()}
-        >
-          Save Profile
-        </button>
       </div>
 
       {/* Box 5: "Saved profiles" */}

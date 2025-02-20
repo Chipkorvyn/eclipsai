@@ -5,21 +5,17 @@ import React, { useEffect, useState } from 'react';
 
 interface PlanOptionsPanelProps {
   userInputs: any;
-  onSelectPlan: (plan: any) => void;
 }
 
-// Convert `tariftyp` to a friendly label
 function getPlanTypeLabel(typ: string) {
   switch (typ) {
     case 'TAR-BASE': return 'Standard';
     case 'TAR-HAM':  return 'Family doctor';
     case 'TAR-HMO':  return 'HMO';
-    default:
-      return 'Other plan types';
+    default: return 'Other plan types';
   }
 }
 
-// Short descriptive text for each type
 function getPlanTypeDescription(typ: string) {
   switch (typ) {
     case 'TAR-BASE':
@@ -33,14 +29,10 @@ function getPlanTypeDescription(typ: string) {
   }
 }
 
-export default function PlanOptionsPanel({
-  userInputs,
-  onSelectPlan
-}: PlanOptionsPanelProps) {
+export default function PlanOptionsPanel({ userInputs }: PlanOptionsPanelProps) {
   const [planList, setPlanList] = useState<any[]>([]);
   const [currentMonthly, setCurrentMonthly] = useState<number | null>(null);
 
-  // Track expansion states for “Show more/less”
   const [expanded, setExpanded] = useState<{
     [key: string]: boolean;
   }>({
@@ -50,16 +42,13 @@ export default function PlanOptionsPanel({
     'TAR-DIV':  false,
   });
 
-  // Must have location + bracket + franchise
+  // Must have location + bracket
+  const isChild = (userInputs.altersklasse === 'AKL-KIN');
   const hasMandatory = Boolean(
     userInputs.altersklasse &&
     userInputs.canton &&
     userInputs.region &&
-    (
-      userInputs.altersklasse === 'AKL-KIN'
-        ? userInputs.franchise >= 0
-        : userInputs.franchise >= 300
-    )
+    ( isChild ? userInputs.franchise >= 0 : userInputs.franchise >= 300 )
   );
 
   useEffect(() => {
@@ -87,14 +76,15 @@ export default function PlanOptionsPanel({
         const mapped = data.map((row: any) => ({
           id: row.id,
           tariftyp: row.tariftyp || 'TAR-DIV',
-          insurer: row.insurer_name || '',
+          insurer_name: row.insurer_name || '',
+          praemie: row.praemie || '0',
           tarif: row.tarif,
-          planLabel: row.plan_label || row.tarifbezeichnung || row.tarif,
-          monthlyPremium: parseFloat(row.praemie),
+          plan_label: row.plan_label || row.tarifbezeichnung || row.tarif,
+          monthlyPremium: parseFloat(row.praemie)
         }));
         mapped.sort((a: any, b: any) => a.monthlyPremium - b.monthlyPremium);
 
-        // If the user has a recognized plan => store currentMonthly
+        // If user has a recognized plan => store monthly cost
         let foundCurrent = null;
         if (
           userInputs.currentInsurer !== 'I have no insurer' &&
@@ -102,15 +92,14 @@ export default function PlanOptionsPanel({
         ) {
           foundCurrent = mapped.find(
             (p: any) =>
-              p.insurer === userInputs.currentInsurer &&
+              p.insurer_name === userInputs.currentInsurer &&
               p.tarif === userInputs.currentPlan
           );
         }
         setPlanList(mapped);
         setCurrentMonthly(foundCurrent ? foundCurrent.monthlyPremium : null);
       })
-      .catch((err) => {
-        console.error('PlanOptionsPanel fetch error:', err);
+      .catch(() => {
         setPlanList([]);
         setCurrentMonthly(null);
       });
@@ -132,19 +121,10 @@ export default function PlanOptionsPanel({
     return <p>No plans found for these filters.</p>;
   }
 
-  const showSavings = currentMonthly !== null;
+  // No "Your current plan" box => removed per request
+  // We simply show each type block in a white box with a blue header
 
-  let currentPlanBox = null;
-  if (showSavings) {
-    currentPlanBox = (
-      <div style={{ background: '#eef', padding: '0.5rem', marginBottom: '1rem' }}>
-        <h4>Your Current Plan</h4>
-        <p><strong>Insurer:</strong> {userInputs.currentInsurer}</p>
-        <p><strong>Plan Code:</strong> {userInputs.currentPlan}</p>
-        <p><strong>Monthly Premium:</strong> {currentMonthly?.toFixed(2)}</p>
-      </div>
-    );
-  }
+  const showSavings = currentMonthly !== null;
 
   // separate by type
   const standardArr = planList.filter((p) => p.tariftyp === 'TAR-BASE');
@@ -154,8 +134,6 @@ export default function PlanOptionsPanel({
 
   return (
     <div>
-      {currentPlanBox}
-
       {renderTypeBlock('TAR-BASE', standardArr)}
       {renderTypeBlock('TAR-HAM',  familyArr)}
       {renderTypeBlock('TAR-HMO',  hmoArr)}
@@ -167,33 +145,38 @@ export default function PlanOptionsPanel({
     if (!subList.length) return null;
 
     const label = getPlanTypeLabel(typ);
-    const desc  = getPlanTypeDescription(typ);
 
-    let maxSavingsLine = null;
-    if (showSavings) {
-      const cheapest = subList[0].monthlyPremium;
-      const diffAnnual = (cheapest - currentMonthly!) * 12;
-      if (diffAnnual < 0) {
-        maxSavingsLine = (
-          <p style={{ fontWeight: 'bold', marginTop: '0' }}>
-            Maximum savings: {Math.abs(diffAnnual).toFixed(2)} CHF
-          </p>
-        );
-      } else {
-        maxSavingsLine = (
-          <p style={{ fontWeight: 'bold', marginTop: '0' }}>
-            Maximum savings: 0 CHF
-          </p>
-        );
-      }
-    }
-
+    // Wrap table in a white box with a blue header => "label"
     return (
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h3 style={{ marginBottom: '0.2rem' }}>{label}</h3>
-        <p style={{ marginTop: '0', fontStyle: 'italic' }}>{desc}</p>
-        {maxSavingsLine}
-        {renderPlanTable(typ, subList)}
+      <div
+        key={typ}
+        style={{
+          background: '#fff',
+          borderRadius: '10px',
+          marginBottom: '1.5rem',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Blue header */}
+        <div style={{
+          background: '#007BFF',
+          color: '#fff',
+          padding: '0.75rem',
+          fontWeight: 'bold',
+          fontSize: '1rem'
+        }}>
+          {label}
+        </div>
+
+        {/* The descriptive text, if you want => e.g. "Family doctor => 'Requires family doc first' */}
+        <div style={{ padding: '0.75rem', fontStyle: 'italic' }}>
+          {getPlanTypeDescription(typ)}
+        </div>
+
+        {/* Table => container => expands as needed */}
+        <div style={{ padding: '0.75rem' }}>
+          {renderPlanTable(typ, subList)}
+        </div>
       </div>
     );
   }
@@ -228,14 +211,10 @@ export default function PlanOptionsPanel({
 
               return (
                 <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '6px' }}>{p.insurer}</td>
+                  <td style={{ padding: '6px' }}>{p.insurer_name}</td>
                   <td style={{ padding: '6px' }}>
-                    <button
-                      style={{ background: 'none', border: 'none', color: 'blue', cursor: 'pointer' }}
-                      onClick={() => onSelectPlan(p)}
-                    >
-                      {p.planLabel}
-                    </button>
+                    {/* read-only plan label */}
+                    {p.plan_label}
                   </td>
                   <td style={{ padding: '6px' }}>
                     {p.monthlyPremium.toFixed(2)}
@@ -254,7 +233,7 @@ export default function PlanOptionsPanel({
                     <button
                       style={{ background: '#ddd', border: 'none', padding: '4px', cursor: 'pointer' }}
                       onClick={() => {
-                        // does nothing for now
+                        // does nothing
                       }}
                     >
                       View Plan
@@ -266,7 +245,6 @@ export default function PlanOptionsPanel({
           </tbody>
         </table>
 
-        {/* Show more or Show less if subList>5 */}
         {subList.length > 5 && (
           <div style={{ marginTop: '0.5rem' }}>
             {isExpanded ? (
@@ -291,16 +269,9 @@ export default function PlanOptionsPanel({
   }
 
   function handleExpand(typ: string) {
-    setExpanded((prev) => ({
-      ...prev,
-      [typ]: true
-    }));
+    setExpanded((prev) => ({ ...prev, [typ]: true }));
   }
-
   function handleCollapse(typ: string) {
-    setExpanded((prev) => ({
-      ...prev,
-      [typ]: false
-    }));
+    setExpanded((prev) => ({ ...prev, [typ]: false }));
   }
 }
