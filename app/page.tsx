@@ -58,6 +58,7 @@ export default function HomePage() {
   }
 
   // ---------------------- STYLES ----------------------
+  // Reduced padding from 2rem to 1rem to move everything “up”
   const containerStyle: React.CSSProperties = {
     minHeight: '100vh',
     backgroundColor: '#007BFF', // blue background
@@ -66,10 +67,9 @@ export default function HomePage() {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '2rem'
+    padding: '1rem' // was 2rem
   };
 
-  // Slightly bigger title & subtitle than before
   const titleStyle: React.CSSProperties = {
     fontSize: '3rem',
     textAlign: 'center',
@@ -91,12 +91,13 @@ export default function HomePage() {
     borderRadius: '3px'
   };
 
+  // White container for inputs => slightly taller to hold 2 new fields
   const boxStyle: React.CSSProperties = {
     backgroundColor: '#fff',
     borderRadius: '10px',
     color: '#000',
     width: '300px',
-    padding: '1rem',
+    padding: '1.5rem', // was 1rem => slightly taller
     marginBottom: '1rem',
     display: 'flex',
     flexDirection: 'column',
@@ -123,7 +124,7 @@ export default function HomePage() {
     fontWeight: 600,
     fontSize: '1rem',
     cursor: isDisabled ? 'not-allowed' : 'pointer',
-    backgroundColor: isButtonPressed ? '#28a745' : '#003b8e', // dark blue normally, #28a745 on press
+    backgroundColor: isButtonPressed ? '#28a745' : '#003b8e',
     color: '#fff',
     textAlign: 'center'
   };
@@ -143,22 +144,30 @@ export default function HomePage() {
         Our users saved on average <span style={highlightNumberStyle}>768</span> CHF
       </p>
 
-      {/* Box with Year of Birth + Franchise */}
+      {/* White container => year of birth, postal code, own risk, accident coverage */}
       <div style={boxStyle}>
-        {/* Year of Birth */}
+        {/* Year of Birth (unchanged) */}
         <div>
           <div style={labelStyle}>Year of Birth</div>
           <input
             type="text"
             style={inputStyle}
             value={yobInput}
-            onChange={(e) => {
-              setYobInput(e.target.value);
-            }}
+            onChange={(e) => setYobInput(e.target.value)}
           />
         </div>
 
-        {/* Franchise => child or adult => from franchiseOptions */}
+        {/* NEW: Postal Code => same width & style => does nothing */}
+        <div>
+          <div style={labelStyle}>Postal Code</div>
+          <input
+            type="text"
+            style={inputStyle}
+            // no logic => does nothing
+          />
+        </div>
+
+        {/* Own Risk => same logic */}
         <div>
           <div style={labelStyle}>Own risk</div>
           <select
@@ -172,6 +181,18 @@ export default function HomePage() {
                 {f}
               </option>
             ))}
+          </select>
+        </div>
+
+        {/* NEW: Accident coverage => same width => does nothing */}
+        <div>
+          <div style={labelStyle}>Accident coverage</div>
+          <select
+            style={inputStyle}
+            // does nothing
+          >
+            <option value="MIT-UNF">With Accident</option>
+            <option value="OHN-UNF">Without Accident</option>
           </select>
         </div>
       </div>
