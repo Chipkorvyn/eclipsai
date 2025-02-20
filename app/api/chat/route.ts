@@ -1,3 +1,4 @@
+// app/api/chat/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import pool from '@/lib/db';

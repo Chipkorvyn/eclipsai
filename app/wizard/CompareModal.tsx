@@ -1,3 +1,4 @@
+// app/wizard/CompareModal.tsx
 'use client';
 
 import React, { useState } from 'react';

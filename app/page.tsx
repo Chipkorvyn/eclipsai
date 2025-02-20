@@ -1,119 +1,154 @@
-// app/page.tsx
+// File: app/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-/** 
- * Helper: given a YOB, return child or adult franchise array.
- */
-function getFranchiseOptions(yob: number): number[] {
-  // If YOB is invalid => treat as adult
-  if (yob < 1900 || yob > 2025) {
-    return [300, 500, 1000, 1500, 2000, 2500];
-  }
-  const ageIn2025 = 2025 - yob;
-  if (ageIn2025 <= 18) {
-    // child
-    return [0, 100, 200, 300, 400, 500, 600];
-  }
-  // adult
-  return [300, 500, 1000, 1500, 2000, 2500];
-}
+// Import your shared logic
+import {
+  computeAltersklasse,
+  getFranchiseOptions,
+  CURRENT_REF_YEAR
+} from '@/lib/insuranceHelpers';
 
 export default function HomePage() {
   const router = useRouter();
 
-  // We'll keep the YOB input in a string so user can type partial digits
-  const [yobInput, setYobInput] = useState('');
-  const [franchise, setFranchise] = useState<number | ''>('');
+  // ---- States for the four mandatory fields ----
+  const [yobInput, setYobInput] = useState('');            // Year of Birth (string)
+  const [franchise, setFranchise] = useState<number | ''>(''); 
+  const [accidentCoverage, setAccidentCoverage] = useState('MIT-UNF'); 
+
+  // ---- States for postal code selection ----
+  const [plzInput, setPlzInput] = useState('');            // typed text in the box
+  const [postalMatches, setPostalMatches] = useState<any[]>([]); 
+  const [selectedPostal, setSelectedPostal] = useState<any | null>(null);
+
+  // ---- Additional states ----
   const [franchiseOptions, setFranchiseOptions] = useState<number[]>([]);
   const [isButtonPressed, setIsButtonPressed] = useState(false);
 
-  // Whenever the user changes the YOB input, recalc franchise options
+  // Whenever YOB changes, recalc franchise options
   useEffect(() => {
     const parsedYob = parseInt(yobInput, 10);
-    const validYOB = !Number.isNaN(parsedYob) ? parsedYob : 0;
-    const opts = getFranchiseOptions(validYOB);
-    setFranchiseOptions(opts);
+    const ak = computeAltersklasse(parsedYob);
+    const opts = getFranchiseOptions(ak);
 
+    setFranchiseOptions(opts);
     // If the chosen franchise is not in the new array => reset
     if (!opts.includes(Number(franchise))) {
       setFranchise('');
     }
   }, [yobInput]);
 
-  const isDisabled = !yobInput || !franchise;
+  // POSTAL CODE Autocomplete => fetch matching rows
+  useEffect(() => {
+    if (!plzInput) {
+      setPostalMatches([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      fetch(`/api/postal?search=${encodeURIComponent(plzInput)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          // data is array of { id, plz, gemeinde, ort_localite, kanton, region_int }
+          setPostalMatches(data);
+        })
+        .catch(() => setPostalMatches([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [plzInput]);
+
+  function handleSelectPostal(row: any) {
+    // user picked from the list => finalize selection
+    setSelectedPostal(row);
+    setPlzInput(row.plz);
+    setPostalMatches([]);
+  }
+
+  // Enable button only if all 4 fields are valid
+  const isDisabled = !yobInput 
+                     || !franchise
+                     || !accidentCoverage
+                     || !selectedPostal; // must confirm the postal row
 
   function handleButtonClick() {
     if (isDisabled) return;
 
+    // Validate YOB
     const parsedYob = parseInt(yobInput, 10);
-    if (Number.isNaN(parsedYob) || parsedYob < 1900 || parsedYob > 2025) {
-      alert('Please enter a valid Year of Birth (1900–2025).');
+    if (
+      Number.isNaN(parsedYob)
+      || parsedYob < 1900
+      || parsedYob > CURRENT_REF_YEAR
+    ) {
+      alert(`Please enter a valid Year of Birth (1900 - ${CURRENT_REF_YEAR}).`);
       return;
     }
 
-    router.push(`/wizard?yob=${parsedYob}&franchise=${franchise}`);
+    // Navigate to wizard with the chosen data:
+    router.push(
+      `/wizard?yob=${parsedYob}`
+      + `&franchise=${franchise}`
+      + `&accident=${accidentCoverage}`
+      + `&postalId=${selectedPostal?.id || ''}`
+    );
   }
 
   // ---------------------- STYLES ----------------------
-  // Reduced padding from 2rem to 1rem to move everything “up”
   const containerStyle: React.CSSProperties = {
     minHeight: '100vh',
-    backgroundColor: '#007BFF', // blue background
-    color: '#fff',              // white text
+    backgroundColor: '#007BFF',
+    color: '#fff',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '1rem' // was 2rem
+    padding: '1rem',
   };
 
   const titleStyle: React.CSSProperties = {
     fontSize: '3rem',
     textAlign: 'center',
     marginBottom: '1.2rem',
-    lineHeight: 1.2
+    lineHeight: 1.2,
   };
 
   const subtitleStyle: React.CSSProperties = {
     fontSize: '1.4rem',
     textAlign: 'center',
-    marginBottom: '2rem'
+    marginBottom: '2rem',
   };
 
-  // The "768" in black on white
   const highlightNumberStyle: React.CSSProperties = {
     color: '#000',
     backgroundColor: '#fff',
     padding: '0 0.3rem',
-    borderRadius: '3px'
+    borderRadius: '3px',
   };
 
-  // White container for inputs => slightly taller to hold 2 new fields
   const boxStyle: React.CSSProperties = {
     backgroundColor: '#fff',
     borderRadius: '10px',
     color: '#000',
     width: '300px',
-    padding: '1.5rem', // was 1rem => slightly taller
+    padding: '1.5rem',
     marginBottom: '1rem',
     display: 'flex',
     flexDirection: 'column',
-    gap: '1rem'
+    gap: '1rem',
   };
 
   const labelStyle: React.CSSProperties = {
     fontWeight: 500,
-    marginBottom: '0.2rem'
+    marginBottom: '0.2rem',
   };
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '0.5rem',
     borderRadius: '5px',
-    border: '1px solid #ccc'
+    border: '1px solid #ccc',
   };
 
   const buttonStyle: React.CSSProperties = {
@@ -126,27 +161,21 @@ export default function HomePage() {
     cursor: isDisabled ? 'not-allowed' : 'pointer',
     backgroundColor: isButtonPressed ? '#28a745' : '#003b8e',
     color: '#fff',
-    textAlign: 'center'
+    textAlign: 'center',
   };
   // ----------------------------------------------------
 
   return (
     <div style={containerStyle}>
-      {/* Big title with question mark */}
-      <h1 style={titleStyle}>
-        Overpaying for Swiss Insurance?
-      </h1>
-
-      {/* Larger subtitle, '768' in black on white */}
+      <h1 style={titleStyle}>Overpaying for Swiss Insurance?</h1>
       <p style={subtitleStyle}>
         Health insurance costs rose by 8.7% in 2024 and will continue to rise.
         <br />
         Our users saved on average <span style={highlightNumberStyle}>768</span> CHF
       </p>
 
-      {/* White container => year of birth, postal code, own risk, accident coverage */}
       <div style={boxStyle}>
-        {/* Year of Birth (unchanged) */}
+        {/* Year of Birth */}
         <div>
           <div style={labelStyle}>Year of Birth</div>
           <input
@@ -157,17 +186,38 @@ export default function HomePage() {
           />
         </div>
 
-        {/* NEW: Postal Code => same width & style => does nothing */}
+        {/* Postal Code => just like wizard */}
         <div>
           <div style={labelStyle}>Postal Code</div>
           <input
             type="text"
             style={inputStyle}
-            // no logic => does nothing
+            value={plzInput}
+            onChange={(e) => {
+              setPlzInput(e.target.value);
+              setSelectedPostal(null);
+            }}
           />
+          {postalMatches.length > 0 && !selectedPostal && (
+            <ul style={{ border: '1px solid #ccc', margin: 0, padding: 0 }}>
+              {postalMatches.map((row) => (
+                <li
+                  key={row.id}
+                  style={{
+                    listStyle: 'none',
+                    padding: '4px',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => handleSelectPostal(row)}
+                >
+                  {row.plz} {row.ort_localite} ({row.gemeinde})
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
-        {/* Own Risk => same logic */}
+        {/* Own Risk (Franchise) */}
         <div>
           <div style={labelStyle}>Own risk</div>
           <select
@@ -184,12 +234,13 @@ export default function HomePage() {
           </select>
         </div>
 
-        {/* NEW: Accident coverage => same width => does nothing */}
+        {/* Accident Coverage */}
         <div>
           <div style={labelStyle}>Accident coverage</div>
           <select
             style={inputStyle}
-            // does nothing
+            value={accidentCoverage}
+            onChange={(e) => setAccidentCoverage(e.target.value)}
           >
             <option value="MIT-UNF">With Accident</option>
             <option value="OHN-UNF">Without Accident</option>
@@ -197,7 +248,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Button => Save on health insurance */}
       <button
         style={buttonStyle}
         disabled={isDisabled}

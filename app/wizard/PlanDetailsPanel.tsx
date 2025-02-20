@@ -1,3 +1,4 @@
+// app/wizard/PlanDetailsPanel.tsx
 'use client';
 
 import React, { useState } from 'react';
