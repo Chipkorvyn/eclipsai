@@ -91,15 +91,16 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-blue-600 text-white flex flex-col items-center justify-center p-4">
       <h1 className="text-5xl text-center mb-5 leading-tight">
-        Overpaying for Swiss Insurance?
+        Save on Swiss Mandatory Health Insurance
       </h1>
 
       <p className="text-2xl text-center mb-8">
-        Health insurance costs rose by 8.7% in 2024 and will continue to rise.
+        Health insurance premiums went up by 6% in 2025.
         <br />
+
         Our users saved on average{" "}
         <span className="text-black bg-white px-1 rounded">
-          768
+          550
         </span>{" "}
         CHF
       </p>

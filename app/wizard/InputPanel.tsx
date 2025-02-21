@@ -2,12 +2,19 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  ChangeEvent,
+  MouseEvent,
+} from "react";
 import {
   computeAltersklasse,
   getFranchiseOptions,
 } from "@/lib/insuranceHelpers";
 
+/** Basic shape for user inputs used by the wizard. */
 export interface UserInputs {
   yearOfBirth: number;
   franchise: number;
@@ -18,11 +25,56 @@ export interface UserInputs {
   currentInsurerBagCode: string;
   currentInsurer: string;
   currentPlan: string;
-  currentPlanRow: any; // or null, but we keep 'any' to avoid deeper refactor
+  currentPlanRow: unknown; // or more specific if you want
   postalId: number;
 }
 
-/** Main props for InputPanel */
+/** Single row from `/api/postal`, used in postalMatches. */
+interface PostalRow {
+  id: number;
+  plz: string;
+  ort_localite: string;
+  gemeinde: string;
+  kanton: string;
+  region_int: number | null;
+}
+
+/** Single row from `/api/insurers`. */
+interface Insurer {
+  id: number;
+  bag_code: string;
+  name: string;
+}
+
+/** Single plan row from `/api/insurerPlans`. */
+interface PlanListItem {
+  distinctTarif: string;
+  distinctLabel: string;
+  tariftyp: string;
+}
+
+/** Single row from `/api/profiles`. */
+interface ProfileRecord {
+  id: number;
+  profile_name: string;
+
+  postal_id: number;
+  postal_plz: string;
+  postal_ort_localite: string;
+  postal_gemeinde: string;
+  postal_kanton: string;
+  postal_region_int: number | null;
+
+  year_of_birth: number;
+  canton: string;
+  region: string;
+  franchise: number;
+  current_plan: string;
+  unfalleinschluss: string;
+  current_insurer_bag_code: string;
+}
+
+/** Props for InputPanel */
 interface InputPanelProps {
   userInputs: UserInputs;
   onUserInputsChange: (vals: Partial<UserInputs>) => void;
@@ -42,39 +94,57 @@ export default function InputPanel({
   onUserInputsChange,
   initialPlz = "",
 }: InputPanelProps) {
-  // -------------- Local states for user editing --------------
+  // ------ Local states for user editing ------
   const [localYob, setLocalYob] = useState<number>(userInputs.yearOfBirth || 0);
   const [localFranchise, setLocalFranchise] = useState<number>(
     userInputs.franchise || 0
   );
-  const [localAccident, setLocalAccident] = useState(
+  const [localAccident, setLocalAccident] = useState<string>(
     userInputs.unfalleinschluss || "MIT-UNF"
   );
-  const [localInsurerBagCode, setLocalInsurerBagCode] = useState(
+  const [localInsurerBagCode, setLocalInsurerBagCode] = useState<string>(
     userInputs.currentInsurerBagCode || ""
   );
-  const [localInsurer, setLocalInsurer] = useState(
+  const [localInsurer, setLocalInsurer] = useState<string>(
     userInputs.currentInsurer || "I have no insurer"
   );
-  const [localPlan, setLocalPlan] = useState(userInputs.currentPlan || "");
+  const [localPlan, setLocalPlan] = useState<string>(userInputs.currentPlan || "");
 
-  // postal code
-  const [plzInput, setPlzInput] = useState("");
-  const [postalMatches, setPostalMatches] = useState<any[]>([]);
-  const [selectedPostal, setSelectedPostal] = useState<any | null>(null);
+  // postal code logic
+  const [plzInput, setPlzInput] = useState<string>("");
+  const [postalMatches, setPostalMatches] = useState<PostalRow[]>([]);
+  const [selectedPostal, setSelectedPostal] = useState<PostalRow | null>(null);
 
-  // For the one-time auto-commit
+  // One-time auto-commit
   const [didAutoCommit, setDidAutoCommit] = useState(false);
 
-  // profiles saving
-  const [profileName, setProfileName] = useState("");
-  const [savedProfiles, setSavedProfiles] = useState<any[]>([]);
+  // profiles
+  const [profileName, setProfileName] = useState<string>("");
+  const [savedProfiles, setSavedProfiles] = useState<ProfileRecord[]>([]);
 
   // plan dropdown
-  const [planList, setPlanList] = useState<any[]>([]);
-  const [insurerList, setInsurerList] = useState<any[]>([]);
+  const [planList, setPlanList] = useState<PlanListItem[]>([]);
+  const [insurerList, setInsurerList] = useState<Insurer[]>([]);
 
-  // -------------- Sync from userInputs if changed --------------
+  /**
+   * commitChanges => merges partial => calls onUserInputsChange
+   */
+  const commitChanges = useCallback(
+    (partial: Partial<UserInputs>) => {
+      const ak = computeAltersklasse(partial.yearOfBirth || 0);
+      const newObj: UserInputs = {
+        ...userInputs, // old
+        ...partial,
+        altersklasse: ak,
+      };
+      onUserInputsChange(newObj);
+    },
+    [userInputs, onUserInputsChange]
+  );
+
+  // ============ Effects ============
+
+  // Sync from userInputs if changed
   useEffect(() => {
     setLocalYob(userInputs.yearOfBirth || 0);
     setLocalFranchise(userInputs.franchise || 0);
@@ -87,7 +157,7 @@ export default function InputPanel({
     if (userInputs.postalId && userInputs.postalId > 0) {
       fetch(`/api/postalById?id=${userInputs.postalId}`)
         .then((r) => r.json())
-        .then((row) => {
+        .then((row: PostalRow) => {
           if (row && row.id) {
             setSelectedPostal(row);
             setPlzInput(row.plz);
@@ -110,7 +180,7 @@ export default function InputPanel({
   useEffect(() => {
     fetch("/api/insurers")
       .then((r) => r.json())
-      .then((data) => setInsurerList(data))
+      .then((data: Insurer[]) => setInsurerList(data))
       .catch(() => {});
   }, []);
 
@@ -127,7 +197,7 @@ export default function InputPanel({
         setSavedProfiles(data.profiles);
       }
     } catch {
-      /* ignore */
+      // ignore
     }
   }
 
@@ -140,71 +210,13 @@ export default function InputPanel({
     const t = setTimeout(() => {
       fetch(`/api/postal?search=${encodeURIComponent(plzInput)}`)
         .then((r) => r.json())
-        .then((rows) => setPostalMatches(rows))
+        .then((rows: PostalRow[]) => setPostalMatches(rows))
         .catch(() => setPostalMatches([]));
     }, 300);
     return () => clearTimeout(t);
   }, [plzInput]);
 
-  function handleSelectPostal(row: any) {
-    setSelectedPostal(row);
-    setPlzInput(row.plz);
-    setPostalMatches([]);
-
-    // Immediately commit so wizard knows
-    commitChanges({
-      yearOfBirth: localYob,
-      franchise: localFranchise,
-      unfalleinschluss: localAccident,
-      currentInsurerBagCode: localInsurerBagCode,
-      currentInsurer: localInsurer,
-      currentPlan: localPlan,
-
-      postalId: row.id || 0,
-      canton: row.kanton || "",
-      region: row.region_int ? `PR-REG CH${row.region_int}` : "",
-    });
-  }
-
-  // Once we have the postal row, YOB, franchise, accident => we can auto-commit
-  useEffect(() => {
-    if (!didAutoCommit) {
-      // If we have all 4 => do one commit
-      if (
-        localYob > 0 &&
-        localFranchise > 0 &&
-        selectedPostal &&
-        localAccident
-      ) {
-        commitChanges({
-          yearOfBirth: localYob,
-          franchise: localFranchise,
-          unfalleinschluss: localAccident,
-          currentInsurerBagCode: localInsurerBagCode,
-          currentInsurer: localInsurer,
-          currentPlan: localPlan,
-
-          postalId: selectedPostal.id || 0,
-          canton: selectedPostal.kanton || "",
-          region: selectedPostal.region_int
-            ? `PR-REG CH${selectedPostal.region_int}`
-            : "",
-        });
-        setDidAutoCommit(true);
-      }
-    }
-  }, [
-    didAutoCommit,
-    localYob,
-    localFranchise,
-    localAccident,
-    localInsurerBagCode,
-    localInsurer,
-    localPlan,
-    selectedPostal,
-  ]);
-
-  // re-fetch plan list if localInsurerBagCode => done below
+  // re-fetch plan list if localInsurerBagCode
   useEffect(() => {
     if (!localInsurerBagCode) {
       setPlanList([]);
@@ -226,23 +238,64 @@ export default function InputPanel({
 
     fetch(url)
       .then((r) => r.json())
-      .then((arr) => setPlanList(arr))
+      .then((arr: PlanListItem[]) => setPlanList(arr))
       .catch(() => setPlanList([]));
   }, [localInsurerBagCode, localYob, localFranchise, localAccident, selectedPostal]);
 
-  // commitChanges => merges partial => calls onUserInputsChange
-  function commitChanges(partial: Partial<UserInputs>) {
-    const ak = computeAltersklasse(partial.yearOfBirth || 0);
-    const newObj = {
-      ...userInputs, // old
-      ...partial,
-      altersklasse: ak,
-    };
-    onUserInputsChange(newObj);
+  // Once we have the postal row + YOB + franchise + accident => do one commit
+  useEffect(() => {
+    if (!didAutoCommit) {
+      if (localYob > 0 && localFranchise > 0 && selectedPostal && localAccident) {
+        commitChanges({
+          yearOfBirth: localYob,
+          franchise: localFranchise,
+          unfalleinschluss: localAccident,
+          currentInsurerBagCode: localInsurerBagCode,
+          currentInsurer: localInsurer,
+          currentPlan: localPlan,
+          postalId: selectedPostal.id || 0,
+          canton: selectedPostal.kanton || "",
+          region: selectedPostal.region_int
+            ? `PR-REG CH${selectedPostal.region_int}`
+            : "",
+        });
+        setDidAutoCommit(true);
+      }
+    }
+  }, [
+    didAutoCommit,
+    localYob,
+    localFranchise,
+    localAccident,
+    localInsurerBagCode,
+    localInsurer,
+    localPlan,
+    selectedPostal,
+    commitChanges, // Important: to fix ESLint “missing dep” warning
+  ]);
+
+  // ============ Handlers ============
+
+  function handleSelectPostal(row: PostalRow) {
+    setSelectedPostal(row);
+    setPlzInput(row.plz);
+    setPostalMatches([]);
+
+    // Immediately commit so wizard knows
+    commitChanges({
+      yearOfBirth: localYob,
+      franchise: localFranchise,
+      unfalleinschluss: localAccident,
+      currentInsurerBagCode: localInsurerBagCode,
+      currentInsurer: localInsurer,
+      currentPlan: localPlan,
+      postalId: row.id || 0,
+      canton: row.kanton || "",
+      region: row.region_int ? `PR-REG CH${row.region_int}` : "",
+    });
   }
 
-  // -------------- handlers --------------
-  function handleYearInput(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleYearInput(e: ChangeEvent<HTMLInputElement>) {
     const val = parseInt(e.target.value, 10) || 0;
     setLocalYob(val);
     commitChanges({
@@ -258,7 +311,7 @@ export default function InputPanel({
     });
   }
 
-  function handleFranchiseChange(e: React.ChangeEvent<HTMLSelectElement>) {
+  function handleFranchiseChange(e: ChangeEvent<HTMLSelectElement>) {
     const val = parseInt(e.target.value, 10) || 0;
     setLocalFranchise(val);
     commitChanges({
@@ -274,7 +327,7 @@ export default function InputPanel({
     });
   }
 
-  function handleAccidentChange(e: React.ChangeEvent<HTMLSelectElement>) {
+  function handleAccidentChange(e: ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value;
     setLocalAccident(val);
     commitChanges({
@@ -290,12 +343,12 @@ export default function InputPanel({
     });
   }
 
-  function handleInsurerChange(e: React.ChangeEvent<HTMLSelectElement>) {
+  function handleInsurerChange(e: ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value;
     setLocalInsurerBagCode(val);
     let newName = "I have no insurer";
     if (val) {
-      const found = insurerList.find((ins: any) => ins.bag_code === val);
+      const found = insurerList.find((ins) => ins.bag_code === val);
       newName = found ? found.name : "Unknown insurer";
     }
     setLocalInsurer(newName);
@@ -313,7 +366,7 @@ export default function InputPanel({
     });
   }
 
-  function handlePlanChange(e: React.ChangeEvent<HTMLSelectElement>) {
+  function handlePlanChange(e: ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value;
     setLocalPlan(val);
     commitChanges({
@@ -329,9 +382,8 @@ export default function InputPanel({
     });
   }
 
-  // grouping planList => to show in select
-  function groupPlansByType(plans: any[]) {
-    const grouped: Record<string, any[]> = {
+  function groupPlansByType(plans: PlanListItem[]) {
+    const grouped: Record<string, PlanListItem[]> = {
       "TAR-BASE": [],
       "TAR-HAM": [],
       "TAR-HMO": [],
@@ -339,15 +391,15 @@ export default function InputPanel({
     };
     for (const p of plans) {
       const typ = p.tariftyp || "TAR-DIV";
-      if (!grouped[typ]) grouped[typ] = [];
       grouped[typ].push(p);
     }
     return grouped;
   }
   const groupedPlans = groupPlansByType(planList);
 
-  // Save profile
-  async function handleSaveProfile() {
+  async function handleSaveProfile(e: MouseEvent<HTMLButtonElement>) {
+    e.preventDefault();
+
     if (!selectedPostal) {
       alert("Please select a postal row first.");
       return;
@@ -423,8 +475,8 @@ export default function InputPanel({
     }
   }
 
-  function handleLoadProfile(p: any) {
-    const row = {
+  function handleLoadProfile(p: ProfileRecord) {
+    const row: PostalRow = {
       id: p.postal_id,
       plz: p.postal_plz,
       ort_localite: p.postal_ort_localite,
@@ -443,7 +495,7 @@ export default function InputPanel({
     let name = "I have no insurer";
     if (p.current_insurer_bag_code) {
       const found = insurerList.find(
-        (ins: any) => ins.bag_code === p.current_insurer_bag_code
+        (ins) => ins.bag_code === p.current_insurer_bag_code
       );
       name = found ? found.name : "Unknown insurer";
     }
@@ -496,7 +548,7 @@ export default function InputPanel({
           onChange={handleInsurerChange}
         >
           <option value="">I have no insurer</option>
-          {insurerList.map((ins: any) => (
+          {insurerList.map((ins) => (
             <option key={ins.id} value={ins.bag_code}>
               {ins.name}
             </option>
@@ -518,9 +570,12 @@ export default function InputPanel({
                 const label = planTypeLabels[typ];
                 return (
                   <optgroup key={typ} label={label}>
-                    {groupArr.map((p) => (
-                      <option key={p.distinctTarif} value={p.distinctTarif}>
-                        {p.distinctLabel}
+                    {groupArr.map((planItem) => (
+                      <option
+                        key={planItem.distinctTarif}
+                        value={planItem.distinctTarif}
+                      >
+                        {planItem.distinctLabel}
                       </option>
                     ))}
                   </optgroup>
@@ -558,7 +613,7 @@ export default function InputPanel({
         {/* Show postal suggestions */}
         {postalMatches.length > 0 && !selectedPostal && (
           <ul className="border border-gray-300 mt-1 max-h-40 overflow-y-auto m-0 p-0">
-            {postalMatches.map((row: any) => (
+            {postalMatches.map((row) => (
               <li
                 key={row.id}
                 className="list-none p-2 cursor-pointer hover:bg-gray-100"
