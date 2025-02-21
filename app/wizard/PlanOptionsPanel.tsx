@@ -1,35 +1,24 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { UserInputs } from "./InputPanel";
 
-/** The final shape for each row in planList. */
-interface PlanOption {
-  id: number;
-  tariftyp: string;
-  insurer_name: string;
-  praemie: string;
-  tarif: string;
-  plan_label: string;
-  monthlyPremium: number;
+interface PlanOptionsPanelProps {
+  userInputs: any;
 }
 
 /**
- * The raw shape from /api/premiums before we map it to PlanOption.
- * This helps remove `any`.
+ * If the difference is > 0 => cheaper => “-xxx CHF/year” (green)
+ * If < 0 => more expensive => “+xxx CHF/year” (red)
+ * If zero => hide
  */
-interface PremiumRow {
-  id: number;
-  tariftyp?: string;
-  insurer_name?: string;
-  praemie?: string;
-  tarif?: string;
-  tarifbezeichnung?: string | null;
-  plan_label?: string;
-}
+function formatCostDiff(diff: number) {
+  const absVal = Math.abs(Math.round(diff));
+  if (absVal === 0) return { text: "", colorClass: "", show: false };
 
-interface PlanOptionsPanelProps {
-  userInputs: UserInputs;
+  const sign = diff > 0 ? "-" : "+";
+  const colorClass = diff > 0 ? "text-green-600" : "text-red-600";
+  const text = `${sign}${absVal} CHF/year`;
+  return { text, colorClass, show: true };
 }
 
 function getPlanTypeLabel(typ: string) {
@@ -41,7 +30,7 @@ function getPlanTypeLabel(typ: string) {
     case "TAR-HMO":
       return "HMO";
     default:
-      return "Other plan types";
+      return "Other plan types"; // updated label
   }
 }
 
@@ -59,7 +48,7 @@ function getPlanTypeDescription(typ: string) {
 }
 
 export default function PlanOptionsPanel({ userInputs }: PlanOptionsPanelProps) {
-  const [planList, setPlanList] = useState<PlanOption[]>([]);
+  const [planList, setPlanList] = useState<any[]>([]);
   const [currentMonthly, setCurrentMonthly] = useState<number | null>(null);
 
   const [expanded, setExpanded] = useState<{
@@ -101,32 +90,26 @@ export default function PlanOptionsPanel({ userInputs }: PlanOptionsPanelProps) 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((data: unknown) => {
-        // Cast the fetched data to PremiumRow[], then map to PlanOption
-        const arr = data as PremiumRow[];
-        const mapped: PlanOption[] = arr.map((row) => {
-          const monthly = parseFloat(row.praemie ?? "0");
-          return {
-            id: row.id,
-            tariftyp: row.tariftyp || "TAR-DIV",
-            insurer_name: row.insurer_name || "",
-            praemie: row.praemie || "0",
-            tarif: row.tarif || "",
-            plan_label:
-              row.plan_label || row.tarifbezeichnung || row.tarif || "",
-            monthlyPremium: monthly,
-          };
-        });
-        mapped.sort((a, b) => a.monthlyPremium - b.monthlyPremium);
+      .then((data) => {
+        const mapped = data.map((row: any) => ({
+          id: row.id,
+          tariftyp: row.tariftyp || "TAR-DIV",
+          insurer_name: row.insurer_name || "",
+          praemie: row.praemie || "0",
+          tarif: row.tarif,
+          plan_label: row.plan_label || row.tarifbezeichnung || row.tarif,
+          monthlyPremium: parseFloat(row.praemie),
+        }));
+        mapped.sort((a: any, b: any) => a.monthlyPremium - b.monthlyPremium);
 
-        // If user has recognized plan => store monthly cost
-        let foundCurrent: PlanOption | undefined;
+        // If user has a recognized plan => store monthly cost
+        let foundCurrent = null;
         if (
           userInputs.currentInsurer !== "I have no insurer" &&
           userInputs.currentPlan
         ) {
           foundCurrent = mapped.find(
-            (p) =>
+            (p: any) =>
               p.insurer_name === userInputs.currentInsurer &&
               p.tarif === userInputs.currentPlan
           );
@@ -156,9 +139,10 @@ export default function PlanOptionsPanel({ userInputs }: PlanOptionsPanelProps) 
     return <p>No plans found for these filters.</p>;
   }
 
-  const showSavings = currentMonthly !== null;
+  // If we recognized a current plan => show difference
+  const showDifference = currentMonthly !== null;
 
-  // separate by type
+  // Separate by type
   const standardArr = planList.filter((p) => p.tariftyp === "TAR-BASE");
   const familyArr = planList.filter((p) => p.tariftyp === "TAR-HAM");
   const hmoArr = planList.filter((p) => p.tariftyp === "TAR-HMO");
@@ -180,109 +164,75 @@ export default function PlanOptionsPanel({ userInputs }: PlanOptionsPanelProps) 
     </div>
   );
 
-  function renderTypeBlock(typ: string, subList: PlanOption[]) {
+  function renderTypeBlock(typ: string, subList: any[]) {
     if (!subList.length) return null;
 
     const label = getPlanTypeLabel(typ);
 
     return (
-      <div
-        key={typ}
-        style={{
-          background: "#fff",
-          borderRadius: "10px",
-          marginBottom: "1.5rem",
-          overflow: "hidden",
-        }}
-      >
-        {/* Blue header */}
-        <div
-          style={{
-            background: "#007BFF",
-            color: "#fff",
-            padding: "0.75rem",
-            fontWeight: "bold",
-            fontSize: "1rem",
-          }}
-        >
+      <div className="bg-white rounded-lg mb-4 overflow-hidden">
+        {/* Header => same size as the box header => text-lg font-bold */}
+        <div className="bg-blue-600 text-white px-3 py-2 font-bold text-lg">
           {label}
         </div>
-
-        {/* The descriptive text */}
-        <div style={{ padding: "0.75rem", fontStyle: "italic" }}>
+        {/* Description */}
+        <div className="px-3 py-2 italic text-sm">
           {getPlanTypeDescription(typ)}
         </div>
-
-        {/* Table => container => expands as needed */}
-        <div style={{ padding: "0.75rem" }}>
+        {/* Table container */}
+        <div className="px-3 pb-3">
           {renderPlanTable(typ, subList)}
         </div>
       </div>
     );
   }
 
-  function renderPlanTable(typ: string, subList: PlanOption[]) {
+  function renderPlanTable(typ: string, subList: any[]) {
     const isExpanded = expanded[typ];
     const displayedRows = isExpanded ? subList : subList.slice(0, 5);
 
     return (
       <>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table className="w-full border-collapse">
           <thead>
-            <tr style={{ borderBottom: "1px solid #ccc" }}>
-              <th style={{ textAlign: "left", padding: "6px" }}>Insurer</th>
-              <th style={{ textAlign: "left", padding: "6px" }}>Plan</th>
-              <th style={{ textAlign: "left", padding: "6px" }}>
-                Monthly Premium
-              </th>
-              {showSavings && (
-                <th style={{ textAlign: "left", padding: "6px" }}>
-                  Annual Savings
-                </th>
+            <tr className="border-b">
+              {/* Table header => text-lg font-bold */}
+              <th className="text-left p-2 text-lg font-bold">Insurer</th>
+              <th className="text-left p-2 text-lg font-bold">Plan</th>
+              <th className="text-left p-2 text-lg font-bold">Monthly Premium</th>
+              {showDifference && (
+                <th className="text-left p-2 text-lg font-bold">Year Diff</th>
               )}
-              <th style={{ textAlign: "left", padding: "6px" }}>View Plan</th>
+              <th className="text-left p-2 text-lg font-bold">View Plan</th>
             </tr>
           </thead>
           <tbody>
-            {displayedRows.map((p) => {
+            {displayedRows.map((p: any) => {
               let diffStr = "";
-              if (showSavings && currentMonthly !== null) {
-                const diffAnnual = (p.monthlyPremium - currentMonthly) * 12;
-                diffStr =
-                  diffAnnual > 0
-                    ? `+${diffAnnual.toFixed(2)}`
-                    : diffAnnual.toFixed(2);
+              let diffClass = "";
+              if (showDifference && currentMonthly !== null) {
+                // difference => p.monthlyPremium - currentMonthly
+                // If positive => cheaper => “-xxx CHF/year” (green)
+                // If negative => more expensive => “+xxx CHF/year” (red)
+                const rawDiff = (currentMonthly - p.monthlyPremium) * 12;
+                // We want positive => cheaper => minus sign => green
+                // So rawDiff>0 => cheaper => => “-xxx”. 
+                // Or we can reverse if your logic is different. 
+                const { text, colorClass, show } = formatCostDiff(rawDiff);
+                diffStr = show ? text : "";
+                diffClass = colorClass;
               }
 
               return (
-                <tr key={p.id} style={{ borderBottom: "1px solid #eee" }}>
-                  <td style={{ padding: "6px" }}>{p.insurer_name}</td>
-                  <td style={{ padding: "6px" }}>{p.plan_label}</td>
-                  <td style={{ padding: "6px" }}>
-                    {p.monthlyPremium.toFixed(2)}
-                  </td>
-                  {showSavings && (
-                    <td
-                      style={{
-                        padding: "6px",
-                        color: diffStr.startsWith("-") ? "green" : "red",
-                      }}
-                    >
-                      {diffStr}
-                    </td>
+                <tr key={p.id} className="border-b">
+                  <td className="p-2">{p.insurer_name}</td>
+                  <td className="p-2">{p.plan_label}</td>
+                  <td className="p-2">{p.monthlyPremium.toFixed(2)}</td>
+                  {showDifference && (
+                    <td className={`p-2 ${diffClass}`}>{diffStr}</td>
                   )}
-                  <td style={{ padding: "6px" }}>
-                    <button
-                      style={{
-                        background: "#ddd",
-                        border: "none",
-                        padding: "4px",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => {
-                        // does nothing
-                      }}
-                    >
+                  <td className="p-2">
+                    <button className="bg-gray-200 px-2 py-1 rounded">
                       View Plan
                     </button>
                   </td>
@@ -291,31 +241,18 @@ export default function PlanOptionsPanel({ userInputs }: PlanOptionsPanelProps) 
             })}
           </tbody>
         </table>
-
         {subList.length > 5 && (
-          <div style={{ marginTop: "0.5rem" }}>
+          <div className="mt-2">
             {isExpanded ? (
               <button
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "blue",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                }}
+                className="text-blue-600 underline"
                 onClick={() => handleCollapse(typ)}
               >
                 Show less
               </button>
             ) : (
               <button
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "blue",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                }}
+                className="text-blue-600 underline"
                 onClick={() => handleExpand(typ)}
               >
                 Show more
