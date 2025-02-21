@@ -423,7 +423,7 @@ export default function WizardClient() {
         </div>
       </div>
 
-      <div className="bg-slate-200 flex-grow py-4">
+      <div className="bg-slate-300 flex-grow py-4">
         <div className="max-w-[1100px] mx-auto flex flex-col md:flex-row gap-2 px-2">
           {/* Left => InputPanel */}
           <div className="w-full md:w-1/4 min-w-[280px]">
