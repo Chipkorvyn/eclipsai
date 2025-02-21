@@ -4,26 +4,29 @@
 
 import React, { useEffect, useState } from "react";
 
-/** 
- * Define an interface for each premium row from /api/premiums 
- * after we map them to include monthlyPremium, etc.
- */
+/** The raw data shape from /api/premiums, as returned by your server. */
+interface PremiumApiRow {
+  id: number;
+  tariftyp?: string | null;
+  insurer_name?: string | null;
+  praemie?: string | null;
+  tarif: string;
+  tarifbezeichnung?: string | null;
+  plan_label?: string | null;
+}
+
+/** The normalized shape we use internally in this component. */
 interface PremiumRow {
   id: number;
-  tariftyp: string;       // e.g. "TAR-BASE" | "TAR-HAM" | "TAR-HMO" | "TAR-DIV"
+  tariftyp: string;
   insurer_name: string;
-  praemie: string;        // original string from DB
+  praemie: string;       // the original string from DB
   tarif: string;
-  plan_label: string;     // user-friendly label
+  plan_label: string;    // user-friendly label
   monthlyPremium: number; // numeric version of praemie
 }
 
-/** 
- * The props your PlanOptionsPanel needs:
- *   - userInputs with fields for location, bracket, currentPlan, etc.
- *   - userInputs is typed loosely here since you have a broader wizard usage,
- *     but define what's needed at minimum.
- */
+/** The props your PlanOptionsPanel needs. Adjust if you have more fields. */
 interface PlanOptionsPanelProps {
   userInputs: {
     altersklasse: string;
@@ -92,12 +95,12 @@ export default function PlanOptionsPanel({ userInputs }: PlanOptionsPanelProps) 
     "TAR-DIV": false,
   });
 
-  const isChild = (userInputs.altersklasse === "AKL-KIN");
+  const isChild = userInputs.altersklasse === "AKL-KIN";
   const hasMandatory = Boolean(
     userInputs.altersklasse &&
-    userInputs.canton &&
-    userInputs.region &&
-    (isChild ? userInputs.franchise >= 0 : userInputs.franchise >= 300)
+      userInputs.canton &&
+      userInputs.region &&
+      (isChild ? userInputs.franchise >= 0 : userInputs.franchise >= 300)
   );
 
   useEffect(() => {
@@ -123,30 +126,36 @@ export default function PlanOptionsPanel({ userInputs }: PlanOptionsPanelProps) 
         }
         return res.json();
       })
-      .then((data: any[]) => {
+      .then((data: PremiumApiRow[]) => {
         // data from /api/premiums is an array of DB rows
         // We map each to a PremiumRow
-        const mapped: PremiumRow[] = data.map((row) => ({
-          id: row.id,
-          tariftyp: row.tariftyp || "TAR-DIV",
-          insurer_name: row.insurer_name || "",
-          praemie: row.praemie || "0",
-          tarif: row.tarif,
-          plan_label:
-            row.plan_label || row.tarifbezeichnung || row.tarif || "??",
-          monthlyPremium: parseFloat(row.praemie || "0"),
-        }));
+        const mapped: PremiumRow[] = data.map((row: PremiumApiRow) => {
+          const monthlyP = parseFloat(row.praemie || "0");
+          return {
+            id: row.id,
+            tariftyp: row.tariftyp ?? "TAR-DIV",
+            insurer_name: row.insurer_name ?? "",
+            praemie: row.praemie ?? "0",
+            tarif: row.tarif,
+            plan_label:
+              row.plan_label ||
+              row.tarifbezeichnung ||
+              row.tarif ||
+              "??",
+            monthlyPremium: monthlyP,
+          };
+        });
 
         mapped.sort((a, b) => a.monthlyPremium - b.monthlyPremium);
 
         // If user has a recognized plan => store monthly cost
-        let foundCurrent: PremiumRow | undefined = undefined;
+        let foundCurrent: PremiumRow | undefined;
         if (
           userInputs.currentInsurer !== "I have no insurer" &&
           userInputs.currentPlan
         ) {
           foundCurrent = mapped.find(
-            (p) =>
+            (p: PremiumRow) =>
               p.insurer_name === userInputs.currentInsurer &&
               p.tarif === userInputs.currentPlan
           );
@@ -177,7 +186,7 @@ export default function PlanOptionsPanel({ userInputs }: PlanOptionsPanelProps) 
   }
 
   // If we recognized a current plan => show difference
-  const showDifference = (currentMonthly !== null);
+  const showDifference = currentMonthly !== null;
 
   // Separate by type
   const standardArr = planList.filter((p) => p.tariftyp === "TAR-BASE");
@@ -244,7 +253,7 @@ export default function PlanOptionsPanel({ userInputs }: PlanOptionsPanelProps) 
             </tr>
           </thead>
           <tbody>
-            {displayedRows.map((p) => {
+            {displayedRows.map((p: PremiumRow) => {
               let diffStr = "";
               let diffClass = "";
               if (showDifference && currentMonthly !== null) {
