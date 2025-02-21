@@ -1,5 +1,4 @@
 import "./globals.css";
-import Script from "next/script";
 
 export default function RootLayout({
   children,
@@ -10,8 +9,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         {/* 
-          Using Next.js <Script> with strategy="beforeInteractive" 
-          so it's loaded early, preventing the 'no-sync-scripts' lint error.
+          .
         */}
       </head>
       <body>{children}</body>
