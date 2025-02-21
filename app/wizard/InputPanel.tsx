@@ -1,83 +1,41 @@
+// File: app/wizard/InputPanel.tsx
+
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  ChangeEvent,
-} from "react";
+import React, { useState, useEffect } from "react";
 import {
   computeAltersklasse,
   getFranchiseOptions,
 } from "@/lib/insuranceHelpers";
 
-// ---------------------- TYPES ----------------------
-
-/** A single row from /api/postal or /api/postalById */
-interface PostalRecord {
-  id: number;
-  plz: string;
-  gemeinde: string;
-  ort_localite: string;
-  kanton: string;
-  region_int: string;
-}
-
-/** The user inputs object shared across the wizard. */
 export interface UserInputs {
   yearOfBirth: number;
   franchise: number;
-  unfalleinschluss: string; // "MIT-UNF" or "OHN-UNF"
+  unfalleinschluss: string;
   canton: string;
   region: string;
-  altersklasse: string; // "AKL-KIN" | "AKL-JUG" | "AKL-ERW" or empty
+  altersklasse: string;
   currentInsurerBagCode: string;
   currentInsurer: string;
   currentPlan: string;
-  currentPlanRow?: unknown;
+  currentPlanRow: any; // or null, but we keep 'any' to avoid deeper refactor
   postalId: number;
 }
 
-/** For /api/insurers => e.g. { id, bag_code, name } */
-interface Insurer {
-  id: number;
-  bag_code: string;
-  name: string;
-}
-
-/** For /api/insurerPlans => distinctTarif, distinctLabel, tariftyp */
-interface InsurerPlan {
-  distinctTarif: string;
-  distinctLabel: string;
-  tariftyp: string;
-}
-
-/** The shape of a saved profile in /api/profiles */
-interface ProfileRecord {
-  id: number;
-  profile_name: string;
-  postal_id: number | null;
-  postal_plz: string;
-  postal_ort_localite: string;
-  postal_gemeinde: string;
-  postal_kanton: string;
-  postal_region_int: string;
-  year_of_birth: number;
-  canton: string;
-  region: string;
-  franchise: number;
-  current_plan: string;
-  unfalleinschluss: string;
-  current_insurer_bag_code: string;
-  last_updated: string;
-}
-
-/** The props to InputPanel */
+/** Main props for InputPanel */
 interface InputPanelProps {
   userInputs: UserInputs;
   onUserInputsChange: (vals: Partial<UserInputs>) => void;
   initialPlz?: string;
 }
+
+const planTypeOrder = ["TAR-BASE", "TAR-HAM", "TAR-HMO", "TAR-DIV"] as const;
+const planTypeLabels: Record<string, string> = {
+  "TAR-BASE": "Standard",
+  "TAR-HAM": "Family doctor",
+  "TAR-HMO": "HMO",
+  "TAR-DIV": "Other plan types",
+};
 
 export default function InputPanel({
   userInputs,
@@ -89,32 +47,32 @@ export default function InputPanel({
   const [localFranchise, setLocalFranchise] = useState<number>(
     userInputs.franchise || 0
   );
-  const [localAccident, setLocalAccident] = useState<string>(
+  const [localAccident, setLocalAccident] = useState(
     userInputs.unfalleinschluss || "MIT-UNF"
   );
-  const [localInsurerBagCode, setLocalInsurerBagCode] = useState<string>(
+  const [localInsurerBagCode, setLocalInsurerBagCode] = useState(
     userInputs.currentInsurerBagCode || ""
   );
-  const [localInsurer, setLocalInsurer] = useState<string>(
+  const [localInsurer, setLocalInsurer] = useState(
     userInputs.currentInsurer || "I have no insurer"
   );
-  const [localPlan, setLocalPlan] = useState<string>(userInputs.currentPlan || "");
+  const [localPlan, setLocalPlan] = useState(userInputs.currentPlan || "");
 
   // postal code
-  const [plzInput, setPlzInput] = useState<string>("");
-  const [postalMatches, setPostalMatches] = useState<PostalRecord[]>([]);
-  const [selectedPostal, setSelectedPostal] = useState<PostalRecord | null>(null);
+  const [plzInput, setPlzInput] = useState("");
+  const [postalMatches, setPostalMatches] = useState<any[]>([]);
+  const [selectedPostal, setSelectedPostal] = useState<any | null>(null);
 
   // For the one-time auto-commit
-  const [didAutoCommit, setDidAutoCommit] = useState<boolean>(false);
+  const [didAutoCommit, setDidAutoCommit] = useState(false);
 
   // profiles saving
-  const [profileName, setProfileName] = useState<string>("");
-  const [savedProfiles, setSavedProfiles] = useState<ProfileRecord[]>([]);
+  const [profileName, setProfileName] = useState("");
+  const [savedProfiles, setSavedProfiles] = useState<any[]>([]);
 
   // plan dropdown
-  const [planList, setPlanList] = useState<InsurerPlan[]>([]);
-  const [insurerList, setInsurerList] = useState<Insurer[]>([]);
+  const [planList, setPlanList] = useState<any[]>([]);
+  const [insurerList, setInsurerList] = useState<any[]>([]);
 
   // -------------- Sync from userInputs if changed --------------
   useEffect(() => {
@@ -129,7 +87,7 @@ export default function InputPanel({
     if (userInputs.postalId && userInputs.postalId > 0) {
       fetch(`/api/postalById?id=${userInputs.postalId}`)
         .then((r) => r.json())
-        .then((row: PostalRecord) => {
+        .then((row) => {
           if (row && row.id) {
             setSelectedPostal(row);
             setPlzInput(row.plz);
@@ -152,26 +110,26 @@ export default function InputPanel({
   useEffect(() => {
     fetch("/api/insurers")
       .then((r) => r.json())
-      .then((data: Insurer[]) => setInsurerList(data))
+      .then((data) => setInsurerList(data))
       .catch(() => {});
   }, []);
 
   // fetch profiles once
-  const fetchProfiles = useCallback(async () => {
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
+
+  async function fetchProfiles() {
     try {
       const res = await fetch("/api/profiles");
       const data = await res.json();
-      if (data.success && data.profiles) {
-        setSavedProfiles(data.profiles as ProfileRecord[]);
+      if (data.success) {
+        setSavedProfiles(data.profiles);
       }
     } catch {
       /* ignore */
     }
-  }, []);
-
-  useEffect(() => {
-    fetchProfiles();
-  }, [fetchProfiles]);
+  }
 
   // postal code autocomplete
   useEffect(() => {
@@ -182,17 +140,18 @@ export default function InputPanel({
     const t = setTimeout(() => {
       fetch(`/api/postal?search=${encodeURIComponent(plzInput)}`)
         .then((r) => r.json())
-        .then((rows: PostalRecord[]) => setPostalMatches(rows))
+        .then((rows) => setPostalMatches(rows))
         .catch(() => setPostalMatches([]));
     }, 300);
     return () => clearTimeout(t);
   }, [plzInput]);
 
-  function handleSelectPostal(row: PostalRecord) {
+  function handleSelectPostal(row: any) {
     setSelectedPostal(row);
     setPlzInput(row.plz);
     setPostalMatches([]);
 
+    // Immediately commit so wizard knows
     commitChanges({
       yearOfBirth: localYob,
       franchise: localFranchise,
@@ -207,23 +166,10 @@ export default function InputPanel({
     });
   }
 
-  // commitChanges => merges partial => calls onUserInputsChange
-  const commitChanges = useCallback(
-    (partial: Partial<UserInputs>) => {
-      const ak = computeAltersklasse(partial.yearOfBirth || 0);
-      const newObj: UserInputs = {
-        ...userInputs,
-        ...partial,
-        altersklasse: ak,
-      };
-      onUserInputsChange(newObj);
-    },
-    [onUserInputsChange, userInputs]
-  );
-
-  // Once we have the postal row, YOB, franchise, accident => we can auto-commit if all valid
+  // Once we have the postal row, YOB, franchise, accident => we can auto-commit
   useEffect(() => {
     if (!didAutoCommit) {
+      // If we have all 4 => do one commit
       if (
         localYob > 0 &&
         localFranchise > 0 &&
@@ -237,6 +183,7 @@ export default function InputPanel({
           currentInsurerBagCode: localInsurerBagCode,
           currentInsurer: localInsurer,
           currentPlan: localPlan,
+
           postalId: selectedPostal.id || 0,
           canton: selectedPostal.kanton || "",
           region: selectedPostal.region_int
@@ -255,7 +202,6 @@ export default function InputPanel({
     localInsurer,
     localPlan,
     selectedPostal,
-    commitChanges,
   ]);
 
   // re-fetch plan list if localInsurerBagCode => done below
@@ -280,18 +226,23 @@ export default function InputPanel({
 
     fetch(url)
       .then((r) => r.json())
-      .then((arr: InsurerPlan[]) => setPlanList(arr))
+      .then((arr) => setPlanList(arr))
       .catch(() => setPlanList([]));
-  }, [
-    localInsurerBagCode,
-    localYob,
-    localFranchise,
-    localAccident,
-    selectedPostal,
-  ]);
+  }, [localInsurerBagCode, localYob, localFranchise, localAccident, selectedPostal]);
+
+  // commitChanges => merges partial => calls onUserInputsChange
+  function commitChanges(partial: Partial<UserInputs>) {
+    const ak = computeAltersklasse(partial.yearOfBirth || 0);
+    const newObj = {
+      ...userInputs, // old
+      ...partial,
+      altersklasse: ak,
+    };
+    onUserInputsChange(newObj);
+  }
 
   // -------------- handlers --------------
-  function handleYearInput(e: ChangeEvent<HTMLInputElement>) {
+  function handleYearInput(e: React.ChangeEvent<HTMLInputElement>) {
     const val = parseInt(e.target.value, 10) || 0;
     setLocalYob(val);
     commitChanges({
@@ -307,7 +258,7 @@ export default function InputPanel({
     });
   }
 
-  function handleFranchiseChange(e: ChangeEvent<HTMLSelectElement>) {
+  function handleFranchiseChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = parseInt(e.target.value, 10) || 0;
     setLocalFranchise(val);
     commitChanges({
@@ -323,7 +274,7 @@ export default function InputPanel({
     });
   }
 
-  function handleAccidentChange(e: ChangeEvent<HTMLSelectElement>) {
+  function handleAccidentChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value;
     setLocalAccident(val);
     commitChanges({
@@ -339,12 +290,12 @@ export default function InputPanel({
     });
   }
 
-  function handleInsurerChange(e: ChangeEvent<HTMLSelectElement>) {
+  function handleInsurerChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value;
     setLocalInsurerBagCode(val);
     let newName = "I have no insurer";
     if (val) {
-      const found = insurerList.find((ins) => ins.bag_code === val);
+      const found = insurerList.find((ins: any) => ins.bag_code === val);
       newName = found ? found.name : "Unknown insurer";
     }
     setLocalInsurer(newName);
@@ -362,7 +313,7 @@ export default function InputPanel({
     });
   }
 
-  function handlePlanChange(e: ChangeEvent<HTMLSelectElement>) {
+  function handlePlanChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value;
     setLocalPlan(val);
     commitChanges({
@@ -378,7 +329,24 @@ export default function InputPanel({
     });
   }
 
-  /** Save profile => POST /api/profiles */
+  // grouping planList => to show in select
+  function groupPlansByType(plans: any[]) {
+    const grouped: Record<string, any[]> = {
+      "TAR-BASE": [],
+      "TAR-HAM": [],
+      "TAR-HMO": [],
+      "TAR-DIV": [],
+    };
+    for (const p of plans) {
+      const typ = p.tariftyp || "TAR-DIV";
+      if (!grouped[typ]) grouped[typ] = [];
+      grouped[typ].push(p);
+    }
+    return grouped;
+  }
+  const groupedPlans = groupPlansByType(planList);
+
+  // Save profile
   async function handleSaveProfile() {
     if (!selectedPostal) {
       alert("Please select a postal row first.");
@@ -455,9 +423,9 @@ export default function InputPanel({
     }
   }
 
-  function handleLoadProfile(p: ProfileRecord) {
-    const row: PostalRecord = {
-      id: p.postal_id || 0,
+  function handleLoadProfile(p: any) {
+    const row = {
+      id: p.postal_id,
       plz: p.postal_plz,
       ort_localite: p.postal_ort_localite,
       gemeinde: p.postal_gemeinde,
@@ -475,7 +443,7 @@ export default function InputPanel({
     let name = "I have no insurer";
     if (p.current_insurer_bag_code) {
       const found = insurerList.find(
-        (ins) => ins.bag_code === p.current_insurer_bag_code
+        (ins: any) => ins.bag_code === p.current_insurer_bag_code
       );
       name = found ? found.name : "Unknown insurer";
     }
@@ -489,7 +457,6 @@ export default function InputPanel({
       currentInsurerBagCode: p.current_insurer_bag_code || "",
       currentInsurer: name,
       currentPlan: p.current_plan || "",
-
       postalId: p.postal_id || 0,
       canton: p.postal_kanton || "",
       region: p.postal_region_int ? `PR-REG CH${p.postal_region_int}` : "",
@@ -512,48 +479,24 @@ export default function InputPanel({
   }
 
   // ========== RENDER ==========
-  const ak = computeAltersklasse(localYob);
-  const validFranchises = getFranchiseOptions(ak);
 
-  const boxStyle: React.CSSProperties = {
-    background: "#fff",
-    borderRadius: "10px",
-    marginBottom: "1rem",
-    padding: "1rem",
-  };
-  const titleStyle: React.CSSProperties = {
-    marginTop: 0,
-    fontSize: "1.6rem",
-    fontWeight: "bold",
-    marginBottom: "0.8rem",
-  };
-  const labelStyle: React.CSSProperties = {
-    display: "block",
-    fontSize: "1.1rem",
-    marginBottom: "0.3rem",
-    fontWeight: 500,
-  };
-  const inputStyle: React.CSSProperties = {
-    fontSize: "1rem",
-    padding: "0.6rem",
-    width: "100%",
-    boxSizing: "border-box",
-    marginBottom: "0.8rem",
-  };
+  const ak = computeAltersklasse(localYob);
+  const franchiseOptions = getFranchiseOptions(ak);
 
   return (
-    <div>
-      {/* Box 1: "Current plan" */}
-      <div style={boxStyle}>
-        <h4 style={titleStyle}>Current plan</h4>
-        <label style={labelStyle}>Current Insurer</label>
+    <div className="flex flex-col">
+      {/* Box 1: Current plan */}
+      <div className="bg-white rounded-lg p-4 mb-4">
+        <h4 className="text-lg font-semibold mb-2">Current plan</h4>
+
+        <label className="block font-medium mb-1">Current Insurer</label>
         <select
-          style={inputStyle}
+          className="w-full p-2 rounded border border-gray-300 mb-4"
           value={localInsurerBagCode}
           onChange={handleInsurerChange}
         >
           <option value="">I have no insurer</option>
-          {insurerList.map((ins) => (
+          {insurerList.map((ins: any) => (
             <option key={ins.id} value={ins.bag_code}>
               {ins.name}
             </option>
@@ -562,76 +505,63 @@ export default function InputPanel({
 
         {localInsurerBagCode && (
           <>
-            <label style={labelStyle}>Current Plan</label>
-            <select style={inputStyle} value={localPlan} onChange={handlePlanChange}>
+            <label className="block font-medium mb-1">Current Plan</label>
+            <select
+              className="w-full p-2 rounded border border-gray-300"
+              value={localPlan}
+              onChange={handlePlanChange}
+            >
               <option value="">None</option>
-              {planList.map((p) => (
-                <option key={p.distinctTarif} value={p.distinctTarif}>
-                  {p.distinctLabel}
-                </option>
-              ))}
+              {planTypeOrder.map((typ) => {
+                const groupArr = groupedPlans[typ] || [];
+                if (!groupArr.length) return null;
+                const label = planTypeLabels[typ];
+                return (
+                  <optgroup key={typ} label={label}>
+                    {groupArr.map((p) => (
+                      <option key={p.distinctTarif} value={p.distinctTarif}>
+                        {p.distinctLabel}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </select>
           </>
         )}
       </div>
 
-      {/* Box 2: "Profile name" */}
-      <div style={boxStyle}>
-        <h4 style={titleStyle}>Profile name</h4>
-        <label style={labelStyle}>Profile Name</label>
-        <input
-          type="text"
-          style={inputStyle}
-          value={profileName}
-          onChange={(e) => setProfileName(e.target.value)}
-        />
+      {/* Box 2: Own data */}
+      <div className="bg-white rounded-lg p-4 mb-4">
+        <h4 className="text-lg font-semibold mb-2">Own data</h4>
 
-        <button
-          style={{
-            padding: "0.6rem 1rem",
-            background: canSaveProfile() ? "#2F62F4" : "#ccc",
-            color: "#fff",
-            border: "none",
-            borderRadius: "4px",
-            cursor: canSaveProfile() ? "pointer" : "default",
-            fontSize: "1rem",
-            marginTop: "0.5rem",
-          }}
-          onClick={handleSaveProfile}
-          disabled={!canSaveProfile()}
-        >
-          Save Profile
-        </button>
-      </div>
-
-      {/* Box 3: "Own data" */}
-      <div style={boxStyle}>
-        <h4 style={titleStyle}>Own data</h4>
-        <label style={labelStyle}>Year of Birth</label>
+        <label className="block font-medium mb-1">Year of Birth</label>
         <input
           type="text"
           inputMode="numeric"
-          style={inputStyle}
+          className="w-full p-2 rounded border border-gray-300 mb-4"
           value={localYob || ""}
           onChange={handleYearInput}
         />
 
-        <label style={labelStyle}>Postal code</label>
+        <label className="block font-medium mb-1">Postal code</label>
         <input
           type="text"
-          style={inputStyle}
+          className="w-full p-2 rounded border border-gray-300"
           value={plzInput}
           onChange={(e) => {
             setPlzInput(e.target.value);
             setSelectedPostal(null);
           }}
         />
+
+        {/* Show postal suggestions */}
         {postalMatches.length > 0 && !selectedPostal && (
-          <ul style={{ border: "1px solid #ccc", margin: 0, padding: 0 }}>
-            {postalMatches.map((row) => (
+          <ul className="border border-gray-300 mt-1 max-h-40 overflow-y-auto m-0 p-0">
+            {postalMatches.map((row: any) => (
               <li
                 key={row.id}
-                style={{ listStyle: "none", padding: "4px", cursor: "pointer" }}
+                className="list-none p-2 cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSelectPostal(row)}
               >
                 {row.plz} {row.ort_localite} ({row.gemeinde})
@@ -641,26 +571,27 @@ export default function InputPanel({
         )}
       </div>
 
-      {/* Box 4: "Insurance preferences" */}
-      <div style={boxStyle}>
-        <h4 style={titleStyle}>Insurance preferences</h4>
-        <label style={labelStyle}>Own risk</label>
+      {/* Box 3: Insurance preferences */}
+      <div className="bg-white rounded-lg p-4 mb-4">
+        <h4 className="text-lg font-semibold mb-2">Insurance preferences</h4>
+
+        <label className="block font-medium mb-1">Own risk</label>
         <select
-          style={inputStyle}
+          className="w-full p-2 rounded border border-gray-300 mb-4"
           value={localFranchise}
           onChange={handleFranchiseChange}
         >
           <option value={0}>--</option>
-          {validFranchises.map((f) => (
+          {franchiseOptions.map((f) => (
             <option key={f} value={f}>
               {f}
             </option>
           ))}
         </select>
 
-        <label style={labelStyle}>Accident coverage</label>
+        <label className="block font-medium mb-1">Accident coverage</label>
         <select
-          style={inputStyle}
+          className="w-full p-2 rounded border border-gray-300"
           value={localAccident}
           onChange={handleAccidentChange}
         >
@@ -669,54 +600,63 @@ export default function InputPanel({
         </select>
       </div>
 
-      {/* Box 5: "Saved profiles" */}
-      <div style={boxStyle}>
-        <h4 style={titleStyle}>Saved profiles</h4>
+      {/* Box 4: Profile name */}
+      <div className="bg-white rounded-lg p-4 mb-4">
+        <h4 className="text-lg font-semibold mb-2">Profile name</h4>
+
+        <label className="block font-medium mb-1">Profile Name</label>
+        <input
+          type="text"
+          className="w-full p-2 rounded border border-gray-300 mb-4"
+          value={profileName}
+          onChange={(e) => setProfileName(e.target.value)}
+        />
+
+        <button
+          className={`
+            px-4 py-2 rounded font-semibold text-white 
+            ${canSaveProfile() ? "bg-blue-600" : "bg-gray-400 cursor-not-allowed"}
+          `}
+          onClick={handleSaveProfile}
+          disabled={!canSaveProfile()}
+        >
+          Save Profile
+        </button>
+      </div>
+
+      {/* Box 5: Saved profiles */}
+      <div className="bg-white rounded-lg p-4">
+        <h4 className="text-lg font-semibold mb-2">Saved profiles</h4>
         {savedProfiles.length === 0 ? (
           <p>No profiles saved yet.</p>
         ) : (
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "1rem",
-            }}
-          >
+          <table className="w-full border-collapse text-sm">
             <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: "4px" }}>ID</th>
-                <th style={{ textAlign: "left", padding: "4px" }}>Profile Name</th>
-                <th style={{ textAlign: "left", padding: "4px" }}>Year</th>
-                <th style={{ textAlign: "left", padding: "4px" }}>Plan</th>
-                <th style={{ textAlign: "left", padding: "4px" }}>Action</th>
+              <tr className="border-b">
+                <th className="text-left p-1">ID</th>
+                <th className="text-left p-1">Profile Name</th>
+                <th className="text-left p-1">Year</th>
+                <th className="text-left p-1">Plan</th>
+                <th className="text-left p-1">Action</th>
               </tr>
             </thead>
             <tbody>
               {savedProfiles.map((p) => (
-                <tr key={p.id}>
-                  <td style={{ padding: "4px" }}>{p.id}</td>
-                  <td style={{ padding: "4px" }}>
+                <tr key={p.id} className="border-b">
+                  <td className="p-1">{p.id}</td>
+                  <td className="p-1">
                     <span
-                      style={{
-                        color: "blue",
-                        cursor: "pointer",
-                        textDecoration: "underline",
-                      }}
+                      className="text-blue-600 underline cursor-pointer"
                       onClick={() => handleLoadProfile(p)}
                     >
                       {p.profile_name}
                     </span>
                   </td>
-                  <td style={{ padding: "4px" }}>{p.year_of_birth}</td>
-                  <td style={{ padding: "4px" }}>{p.current_plan}</td>
-                  <td style={{ padding: "4px" }}>
+                  <td className="p-1">{p.year_of_birth}</td>
+                  <td className="p-1">{p.current_plan}</td>
+                  <td className="p-1">
                     <button
-                      style={{
-                        background: "red",
-                        color: "#fff",
-                        border: "none",
-                        cursor: "pointer",
-                      }}
+                      className="bg-red-600 text-white px-2 py-1 rounded cursor-pointer"
                       onClick={() => handleDeleteProfile(p.id)}
                     >
                       Delete
