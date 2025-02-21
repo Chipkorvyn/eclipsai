@@ -5,12 +5,9 @@ import pool from '@/lib/db';
 
 /**
  * GET => list all rows for user_id='default'.
- * If you want to adapt for multi-user, you'd pass a token or session,
- * then filter by that user ID.
  */
 export async function GET() {
   try {
-    // Example single-user scenario:
     const userId = 'default';
     const sql = `
       SELECT 
@@ -28,32 +25,23 @@ export async function GET() {
     `;
     const result = await pool.query(sql, [userId]);
     return NextResponse.json({ success: true, profiles: result.rows });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('GET /api/profiles error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    if (error instanceof Error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ success: false, error: 'Unknown error occurred' }, { status: 500 });
   }
 }
 
 /**
  * POST => create or upsert a profile.
- * 
- * By default, it *inserts* a new row for (user_id, profile_name, etc.).
- * 
- * If you want to *upsert* (insert or update if the row already exists),
- * pass "upsertMode: true" in the request body, and it will update
- * the row with the same (user_id, profile_name).
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-
-    // Hard-coded single-user scenario:
     const userId = 'default';
 
-    // Basic field validations
     if (!body.profileName) {
       return NextResponse.json(
         { success: false, error: 'Missing profileName' },
@@ -67,10 +55,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If "upsertMode" is true => do an upsert by (user_id, profile_name)
     const upsertMode = body.upsertMode === true;
 
-    // Common fields to insert or update
     const vals = [
       userId,
       body.profileName,
@@ -156,15 +142,17 @@ export async function POST(req: NextRequest) {
       const result = await pool.query(sql, vals);
       return NextResponse.json({ success: true, profile: result.rows[0] });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('POST /api/profiles error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    if (error instanceof Error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ success: false, error: 'Unknown error occurred' }, { status: 500 });
   }
 }
 
 /**
  * DELETE => remove by ?id=123
- * As before, removing a specific record by ID.
  */
 export async function DELETE(req: NextRequest) {
   try {
@@ -180,8 +168,11 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Profile not found' }, { status: 404 });
     }
     return NextResponse.json({ success: true, deletedId: result.rows[0].id });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('DELETE /api/profiles error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    if (error instanceof Error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ success: false, error: 'Unknown error occurred' }, { status: 500 });
   }
 }

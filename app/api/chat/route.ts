@@ -3,10 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import pool from '@/lib/db';
 
-interface TimestampResult {
-  now: string | Date;
-}
-
 export async function GET() {
   try {
     const result = await pool.query('SELECT NOW()');
@@ -16,11 +12,11 @@ export async function GET() {
     });
   } catch (error: unknown) {
     console.error('DB error:', error);
-    
+
     if (error instanceof Error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
-    
+
     return NextResponse.json({ success: false, error: 'Unknown error occurred' }, { status: 500 });
   }
 }
@@ -29,8 +25,8 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const SYSTEM_PROMPT = `You are a helpful assistant answering only about Switzerland's mandatory health insurance. 
-You must answer in short and concise statements. 
+const SYSTEM_PROMPT = `You are a helpful assistant answering only about Switzerland's mandatory health insurance.
+You must answer in short and concise statements.
 Refuse any question not about Swiss mandatory insurance. Answer concisely, max 100 words.`;
 
 export async function POST(req: NextRequest) {
@@ -48,7 +44,7 @@ export async function POST(req: NextRequest) {
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userQuestion }
+        { role: 'user', content: userQuestion },
       ],
       max_tokens: 200,
       temperature: 0.7,

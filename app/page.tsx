@@ -1,5 +1,4 @@
-// File: app/page.tsx
-'use client';
+"use client";
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -8,6 +7,16 @@ import {
   getFranchiseOptions,
   CURRENT_REF_YEAR
 } from '@/lib/insuranceHelpers';
+
+// Define a type for the postal records
+interface PostalRecord {
+  id: number;
+  plz: string;
+  gemeinde: string;
+  ort_localite: string;
+  kanton: string;
+  region_int: string;
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -19,8 +28,8 @@ export default function HomePage() {
 
   // Postal code logic
   const [plzInput, setPlzInput] = useState('');
-  const [postalMatches, setPostalMatches] = useState<any[]>([]);
-  const [selectedPostal, setSelectedPostal] = useState<any | null>(null);
+  const [postalMatches, setPostalMatches] = useState<PostalRecord[]>([]);
+  const [selectedPostal, setSelectedPostal] = useState<PostalRecord | null>(null);
 
   // Franchise array
   const [franchiseOptions, setFranchiseOptions] = useState<number[]>([]);
@@ -47,13 +56,13 @@ export default function HomePage() {
     const t = setTimeout(() => {
       fetch(`/api/postal?search=${encodeURIComponent(plzInput)}`)
         .then((r) => r.json())
-        .then((data) => setPostalMatches(data))
+        .then((data: PostalRecord[]) => setPostalMatches(data))
         .catch(() => setPostalMatches([]));
     }, 300);
     return () => clearTimeout(t);
   }, [plzInput]);
 
-  function handleSelectPostal(row: any) {
+  function handleSelectPostal(row: PostalRecord) {
     setSelectedPostal(row);
     setPlzInput(row.plz);
     setPostalMatches([]);
@@ -139,7 +148,7 @@ export default function HomePage() {
           <label className="font-medium mb-1 block">Own risk</label>
           <select
             className="w-full p-2 rounded border border-gray-300"
-            value={franchise}
+            value={franchise === '' ? '' : franchise}
             onChange={(e) => setFranchise(Number(e.target.value))}
           >
             <option value="">(Select)</option>
