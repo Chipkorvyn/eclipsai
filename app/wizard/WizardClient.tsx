@@ -1,3 +1,5 @@
+// File: app/wizard/WizardClient.tsx
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -392,117 +394,76 @@ export default function WizardClient() {
   const topBoxes = buildBoxes();
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+    <div className="flex flex-col min-h-screen">
       {/* top nav */}
-      <div
-        style={{
-          background: "#fff",
-          height: "50px",
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
+      <div className="bg-white h-[50px] flex-shrink-0 flex items-center">
         <div
           onClick={() => {
             window.location.href = "/";
           }}
-          style={{ marginLeft: "1rem", cursor: "pointer", fontWeight: "bold", fontSize: "1.3rem" }}
+          className="ml-4 cursor-pointer font-bold text-[1.3rem]"
         >
           Eclipsai
         </div>
       </div>
 
-      <div style={{ background: "#f0f0f0", flex: 1, padding: "1rem 0" }}>
-        <div style={{ maxWidth: "1100px", margin: "0 auto", display: "flex", gap: "0.5rem" }}>
+      <div className="bg-gray-100 flex-grow py-4">
+        <div className="max-w-[1100px] mx-auto flex gap-2">
           {/* Left => InputPanel */}
-          <div style={{ width: "25%", minWidth: "280px" }}>
-            <InputPanel userInputs={userInputs} onUserInputsChange={handleUserInputsChange} />
+          <div className="w-1/4 min-w-[280px]">
+            <InputPanel
+              userInputs={userInputs}
+              onUserInputsChange={handleUserInputsChange}
+            />
           </div>
 
           {/* Right => top boxes => PlanOptionsPanel */}
-          <div style={{ flex: 1 }}>
+          <div className="flex-1">
             {/* 4 top boxes */}
-            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+            <div className="flex gap-2 mb-4">
               {topBoxes.map((box, idx) => (
                 <div
                   key={idx}
-                  style={{
-                    flex: 1,
-                    background: "#fff",
-                    borderRadius: "6px",
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                  }}
+                  className="flex-1 bg-white rounded-[6px] overflow-hidden flex flex-col"
                 >
+                  {/* Dynamic color => must remain inline for header */}
                   <div
-                    style={{
-                      background: box.headerColor,
-                      color: "#fff",
-                      padding: "0.5rem",
-                      fontWeight: "bold",
-                      fontSize: "0.95rem",
-                      textAlign: "center",
-                      lineHeight: "1.3",
-                    }}
+                    style={{ background: box.headerColor }}
+                    className="text-white p-2 font-bold text-[0.95rem] text-center leading-[1.3]"
                   >
                     <div>{box.headerLine1}</div>
                     <div>{box.headerLine2}</div>
                   </div>
 
-                  <div style={{ padding: "0.75rem", flex: 1 }}>
-                    <div style={{ fontSize: "1.2rem", marginBottom: "0.6rem" }}>
+                  <div className="p-3 flex-1">
+                    <div className="text-[1.2rem] mb-[0.6rem]">
                       {box.planType}
                     </div>
-                    <div
-                      style={{
-                        fontSize: "1.4rem",
-                        fontWeight: "bold",
-                        marginBottom: "0.6rem",
-                      }}
-                    >
+                    <div className="text-[1.4rem] font-bold mb-[0.6rem]">
                       {box.insurer}
                     </div>
-                    <div style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>
+                    <div className="text-[1.2rem] mb-4">
                       {box.planName}
                     </div>
-                    <div style={{ fontSize: "1.6rem", marginBottom: "0.3rem" }}>
+                    <div className="text-[1.6rem] mb-[0.3rem]">
                       {box.monthly}
                     </div>
                     {box.annualSavings && (
-                      <div style={{ fontSize: "1.2rem", color: "green", marginBottom: "1rem" }}>
+                      <div className="text-[1.2rem] text-green-600 mb-4">
                         {box.annualSavings}
                       </div>
                     )}
-                    <div style={{ marginTop: "0.5rem" }}>
+                    <div className="mt-[0.5rem]">
                       <button
-                        style={{
-                          padding: "0.5rem 1rem",
-                          borderRadius: "4px",
-                          background: "#007BFF",
-                          color: "#fff",
-                          border: "none",
-                          cursor: "pointer",
-                          fontSize: "1.1rem",
-                          whiteSpace: "nowrap",
-                        }}
+                        className="px-4 py-2 rounded bg-blue-600 text-white cursor-pointer text-[1.1rem] whitespace-nowrap"
                       >
                         View plan
                       </button>
-                      <div
-                        style={{
-                          marginTop: "0.5rem",
-                          fontSize: "1rem",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                        }}
-                      >
+                      <div className="mt-[0.5rem] text-[1rem] flex items-center justify-between">
                         <span>Compare</span>
                         <input
                           type="checkbox"
-                          style={{ marginLeft: "1rem", transform: "scale(1.2)" }}
+                          className="ml-4 scale-125"
                         />
                       </div>
                     </div>
