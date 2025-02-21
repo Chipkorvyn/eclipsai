@@ -68,7 +68,6 @@ export default function WizardClient() {
     postalId: 0,
   });
 
-  // read from query on mount
   useEffect(() => {
     const updates: Partial<UserInputs> = {};
     if (queryYob > 0) updates.yearOfBirth = queryYob;
@@ -83,7 +82,6 @@ export default function WizardClient() {
     }
   }, [queryYob, queryFranchise, queryAccident, queryPostalId]);
 
-  // Child calls this => we update userInputs if changed
   const handleUserInputsChange = useCallback((newVals: Partial<UserInputs>) => {
     setUserInputs((prev) => {
       return { ...prev, ...newVals };
@@ -98,7 +96,6 @@ export default function WizardClient() {
     "TAR-DIV": [],
   });
 
-  // fetch data when userInputs changes
   useEffect(() => {
     if (!userInputs.canton || !userInputs.region || !userInputs.altersklasse) {
       setGroupedByType({
@@ -396,21 +393,26 @@ export default function WizardClient() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* top nav */}
-      <div className="bg-white h-[50px] flex-shrink-0 flex items-center">
+      <div className="bg-white h-12 flex-shrink-0 flex items-center">
         <div
           onClick={() => {
             window.location.href = "/";
           }}
-          className="ml-4 cursor-pointer font-bold text-[1.3rem]"
+          className="ml-4 cursor-pointer font-bold text-lg"
         >
           Eclipsai
         </div>
       </div>
 
+      {/* Main content => Mobile-friendly layout */}
       <div className="bg-gray-100 flex-grow py-4">
-        <div className="max-w-[1100px] mx-auto flex gap-2">
+        {/* 
+          flex-col => stacked on mobile
+          md:flex-row => side-by-side on bigger screens
+        */}
+        <div className="max-w-[1100px] mx-auto flex flex-col md:flex-row gap-2 px-2">
           {/* Left => InputPanel */}
-          <div className="w-1/4 min-w-[280px]">
+          <div className="w-full md:w-1/4 min-w-[280px]">
             <InputPanel
               userInputs={userInputs}
               onUserInputsChange={handleUserInputsChange}
@@ -419,47 +421,36 @@ export default function WizardClient() {
 
           {/* Right => top boxes => PlanOptionsPanel */}
           <div className="flex-1">
-            {/* 4 top boxes */}
-            <div className="flex gap-2 mb-4">
+            {/* 4 top boxes => use grid on bigger screens */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
               {topBoxes.map((box, idx) => (
                 <div
                   key={idx}
-                  className="flex-1 bg-white rounded-[6px] overflow-hidden flex flex-col"
+                  className="bg-white rounded-[6px] overflow-hidden flex flex-col"
                 >
-                  {/* Dynamic color => must remain inline for header */}
                   <div
                     style={{ background: box.headerColor }}
-                    className="text-white p-2 font-bold text-[0.95rem] text-center leading-[1.3]"
+                    className="text-white p-2 font-bold text-sm text-center leading-[1.3]"
                   >
                     <div>{box.headerLine1}</div>
                     <div>{box.headerLine2}</div>
                   </div>
 
                   <div className="p-3 flex-1">
-                    <div className="text-[1.2rem] mb-[0.6rem]">
-                      {box.planType}
-                    </div>
-                    <div className="text-[1.4rem] font-bold mb-[0.6rem]">
-                      {box.insurer}
-                    </div>
-                    <div className="text-[1.2rem] mb-4">
-                      {box.planName}
-                    </div>
-                    <div className="text-[1.6rem] mb-[0.3rem]">
-                      {box.monthly}
-                    </div>
+                    <div className="text-base mb-2">{box.planType}</div>
+                    <div className="text-xl font-bold mb-2">{box.insurer}</div>
+                    <div className="text-base mb-4">{box.planName}</div>
+                    <div className="text-2xl mb-1">{box.monthly}</div>
                     {box.annualSavings && (
-                      <div className="text-[1.2rem] text-green-600 mb-4">
+                      <div className="text-md text-green-600 mb-4">
                         {box.annualSavings}
                       </div>
                     )}
-                    <div className="mt-[0.5rem]">
-                      <button
-                        className="px-4 py-2 rounded bg-blue-600 text-white cursor-pointer text-[1.1rem] whitespace-nowrap"
-                      >
+                    <div className="mt-2">
+                      <button className="px-4 py-2 rounded bg-blue-600 text-white cursor-pointer text-base whitespace-nowrap">
                         View plan
                       </button>
-                      <div className="mt-[0.5rem] text-[1rem] flex items-center justify-between">
+                      <div className="mt-2 text-sm flex items-center justify-between">
                         <span>Compare</span>
                         <input
                           type="checkbox"
