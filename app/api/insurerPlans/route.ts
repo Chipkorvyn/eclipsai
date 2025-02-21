@@ -1,8 +1,14 @@
 // File: app/api/insurerPlans/route.ts
-
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { buildWhereClause } from '@/lib/dbUtils';
+
+// Define a type for the plans returned from your query
+interface InsurerPlan {
+  distinctTarif: string;
+  distinctLabel: string;
+  tariftyp: string;
+}
 
 export async function GET(request: Request) {
   try {
@@ -39,9 +45,14 @@ export async function GET(request: Request) {
       LIMIT 200
     `;
     const result = await pool.query(sql, values);
-    return NextResponse.json(result.rows);
-  } catch (error: any) {
+    return NextResponse.json(result.rows as InsurerPlan[]);
+  } catch (error: unknown) {
     console.error('insurerPlans route error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    if (error instanceof Error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    
+    return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }

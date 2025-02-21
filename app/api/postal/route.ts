@@ -1,6 +1,16 @@
 // app/api/postal/route.ts
 import { NextResponse } from 'next/server';
-import pool from '@/lib/db'; // adjust the path if needed
+import pool from '@/lib/db';
+
+// Define proper types for your postal data
+interface PostalRecord {
+  id: number;
+  plz: string;
+  gemeinde: string;
+  ort_localite: string;
+  kanton: string;
+  region_int: string;
+}
 
 export async function GET(request: Request) {
   try {
@@ -20,9 +30,16 @@ export async function GET(request: Request) {
     `;
     const result = await pool.query(sql, [searchValue]);
 
-    return NextResponse.json(result.rows);
-  } catch (error: any) {
+    return NextResponse.json(result.rows as PostalRecord[]);
+  } catch (error: unknown) {
+    // Use unknown instead of any for better type safety
     console.error('postal route error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    // Type guard to safely access error properties
+    if (error instanceof Error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    
+    return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }

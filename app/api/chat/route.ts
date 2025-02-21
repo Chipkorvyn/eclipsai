@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import pool from '@/lib/db';
 
+interface TimestampResult {
+  now: string | Date;
+}
+
 export async function GET() {
   try {
     const result = await pool.query('SELECT NOW()');
@@ -10,9 +14,14 @@ export async function GET() {
       success: true,
       timestamp: result.rows[0].now,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('DB error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    
+    if (error instanceof Error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+    
+    return NextResponse.json({ success: false, error: 'Unknown error occurred' }, { status: 500 });
   }
 }
 
