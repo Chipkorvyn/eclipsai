@@ -2,7 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { buildWhereClause } from '@/app/lib/dbUtils';
+import { buildWhereClause } from '@/lib/dbUtils';
 
 export async function GET(request: Request) {
   try {
