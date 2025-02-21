@@ -1,15 +1,12 @@
-// app/layout.tsx
-import { Inter } from 'next/font/google';
-
-// Use a known Google font instead:
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-});
+import './globals.css';
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en">
+      <head>
+        {/* Add this line */}
+        <script src="https://cdn.tailwindcss.com"></script>
+      </head>
       <body>{children}</body>
     </html>
   );

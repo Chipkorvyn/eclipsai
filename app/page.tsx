@@ -3,8 +3,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-// Import your shared logic
 import {
   computeAltersklasse,
   getFranchiseOptions,
@@ -14,34 +12,33 @@ import {
 export default function HomePage() {
   const router = useRouter();
 
-  // ---- States for the four mandatory fields ----
-  const [yobInput, setYobInput] = useState('');            // Year of Birth (string)
-  const [franchise, setFranchise] = useState<number | ''>(''); 
-  const [accidentCoverage, setAccidentCoverage] = useState('MIT-UNF'); 
+  // Mandatory fields
+  const [yobInput, setYobInput] = useState('');
+  const [franchise, setFranchise] = useState<number | ''>('');
+  const [accidentCoverage, setAccidentCoverage] = useState('MIT-UNF');
 
-  // ---- States for postal code selection ----
-  const [plzInput, setPlzInput] = useState('');            // typed text in the box
-  const [postalMatches, setPostalMatches] = useState<any[]>([]); 
+  // Postal code logic
+  const [plzInput, setPlzInput] = useState('');
+  const [postalMatches, setPostalMatches] = useState<any[]>([]);
   const [selectedPostal, setSelectedPostal] = useState<any | null>(null);
 
-  // ---- Additional states ----
+  // Franchise array
   const [franchiseOptions, setFranchiseOptions] = useState<number[]>([]);
   const [isButtonPressed, setIsButtonPressed] = useState(false);
 
-  // Whenever YOB changes, recalc franchise options
+  // Update franchise options whenever YOB changes
   useEffect(() => {
     const parsedYob = parseInt(yobInput, 10);
     const ak = computeAltersklasse(parsedYob);
     const opts = getFranchiseOptions(ak);
 
     setFranchiseOptions(opts);
-    // If the chosen franchise is not in the new array => reset
     if (!opts.includes(Number(franchise))) {
       setFranchise('');
     }
-  }, [yobInput]);
+  }, [yobInput, franchise]);
 
-  // POSTAL CODE Autocomplete => fetch matching rows
+  // Postal code autocomplete
   useEffect(() => {
     if (!plzInput) {
       setPostalMatches([]);
@@ -50,43 +47,30 @@ export default function HomePage() {
     const t = setTimeout(() => {
       fetch(`/api/postal?search=${encodeURIComponent(plzInput)}`)
         .then((r) => r.json())
-        .then((data) => {
-          // data is array of { id, plz, gemeinde, ort_localite, kanton, region_int }
-          setPostalMatches(data);
-        })
+        .then((data) => setPostalMatches(data))
         .catch(() => setPostalMatches([]));
     }, 300);
     return () => clearTimeout(t);
   }, [plzInput]);
 
   function handleSelectPostal(row: any) {
-    // user picked from the list => finalize selection
     setSelectedPostal(row);
     setPlzInput(row.plz);
     setPostalMatches([]);
   }
 
-  // Enable button only if all 4 fields are valid
-  const isDisabled = !yobInput 
-                     || !franchise
-                     || !accidentCoverage
-                     || !selectedPostal; // must confirm the postal row
+  // Only enabled if all fields are valid
+  const isDisabled = !yobInput || !franchise || !accidentCoverage || !selectedPostal;
 
   function handleButtonClick() {
     if (isDisabled) return;
 
-    // Validate YOB
     const parsedYob = parseInt(yobInput, 10);
-    if (
-      Number.isNaN(parsedYob)
-      || parsedYob < 1900
-      || parsedYob > CURRENT_REF_YEAR
-    ) {
+    if (Number.isNaN(parsedYob) || parsedYob < 1900 || parsedYob > CURRENT_REF_YEAR) {
       alert(`Please enter a valid Year of Birth (1900 - ${CURRENT_REF_YEAR}).`);
       return;
     }
 
-    // Navigate to wizard with the chosen data:
     router.push(
       `/wizard?yob=${parsedYob}`
       + `&franchise=${franchise}`
@@ -95,103 +79,40 @@ export default function HomePage() {
     );
   }
 
-  // ---------------------- STYLES ----------------------
-  const containerStyle: React.CSSProperties = {
-    minHeight: '100vh',
-    backgroundColor: '#007BFF',
-    color: '#fff',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '1rem',
-  };
-
-  const titleStyle: React.CSSProperties = {
-    fontSize: '3rem',
-    textAlign: 'center',
-    marginBottom: '1.2rem',
-    lineHeight: 1.2,
-  };
-
-  const subtitleStyle: React.CSSProperties = {
-    fontSize: '1.4rem',
-    textAlign: 'center',
-    marginBottom: '2rem',
-  };
-
-  const highlightNumberStyle: React.CSSProperties = {
-    color: '#000',
-    backgroundColor: '#fff',
-    padding: '0 0.3rem',
-    borderRadius: '3px',
-  };
-
-  const boxStyle: React.CSSProperties = {
-    backgroundColor: '#fff',
-    borderRadius: '10px',
-    color: '#000',
-    width: '300px',
-    padding: '1.5rem',
-    marginBottom: '1rem',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1rem',
-  };
-
-  const labelStyle: React.CSSProperties = {
-    fontWeight: 500,
-    marginBottom: '0.2rem',
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '0.5rem',
-    borderRadius: '5px',
-    border: '1px solid #ccc',
-  };
-
-  const buttonStyle: React.CSSProperties = {
-    width: '300px',
-    padding: '0.75rem',
-    borderRadius: '10px',
-    border: 'none',
-    fontWeight: 600,
-    fontSize: '1rem',
-    cursor: isDisabled ? 'not-allowed' : 'pointer',
-    backgroundColor: isButtonPressed ? '#28a745' : '#003b8e',
-    color: '#fff',
-    textAlign: 'center',
-  };
-  // ----------------------------------------------------
-
   return (
-    <div style={containerStyle}>
-      <h1 style={titleStyle}>Overpaying for Swiss Insurance?</h1>
-      <p style={subtitleStyle}>
+    <div className="min-h-screen bg-blue-600 text-white flex flex-col items-center justify-center p-4">
+      <h1 className="text-5xl text-center mb-5 leading-tight">
+        Overpaying for Swiss Insurance?
+      </h1>
+
+      <p className="text-2xl text-center mb-8">
         Health insurance costs rose by 8.7% in 2024 and will continue to rise.
         <br />
-        Our users saved on average <span style={highlightNumberStyle}>768</span> CHF
+        Our users saved on average{" "}
+        <span className="text-black bg-white px-1 rounded">
+          768
+        </span>{" "}
+        CHF
       </p>
 
-      <div style={boxStyle}>
+      <div className="bg-white text-black w-72 p-6 mb-4 rounded-lg flex flex-col gap-4">
         {/* Year of Birth */}
         <div>
-          <div style={labelStyle}>Year of Birth</div>
+          <label className="font-medium mb-1 block">Year of Birth</label>
           <input
             type="text"
-            style={inputStyle}
+            className="w-full p-2 rounded border border-gray-300"
             value={yobInput}
             onChange={(e) => setYobInput(e.target.value)}
           />
         </div>
 
-        {/* Postal Code => just like wizard */}
+        {/* Postal Code */}
         <div>
-          <div style={labelStyle}>Postal Code</div>
+          <label className="font-medium mb-1 block">Postal Code</label>
           <input
             type="text"
-            style={inputStyle}
+            className="w-full p-2 rounded border border-gray-300"
             value={plzInput}
             onChange={(e) => {
               setPlzInput(e.target.value);
@@ -199,15 +120,11 @@ export default function HomePage() {
             }}
           />
           {postalMatches.length > 0 && !selectedPostal && (
-            <ul style={{ border: '1px solid #ccc', margin: 0, padding: 0 }}>
+            <ul className="border border-gray-300 mt-1 max-h-40 overflow-y-auto m-0 p-0">
               {postalMatches.map((row) => (
                 <li
                   key={row.id}
-                  style={{
-                    listStyle: 'none',
-                    padding: '4px',
-                    cursor: 'pointer',
-                  }}
+                  className="list-none p-2 cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSelectPostal(row)}
                 >
                   {row.plz} {row.ort_localite} ({row.gemeinde})
@@ -217,11 +134,11 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Own Risk (Franchise) */}
+        {/* Franchise */}
         <div>
-          <div style={labelStyle}>Own risk</div>
+          <label className="font-medium mb-1 block">Own risk</label>
           <select
-            style={inputStyle}
+            className="w-full p-2 rounded border border-gray-300"
             value={franchise}
             onChange={(e) => setFranchise(Number(e.target.value))}
           >
@@ -234,11 +151,11 @@ export default function HomePage() {
           </select>
         </div>
 
-        {/* Accident Coverage */}
+        {/* Accident coverage */}
         <div>
-          <div style={labelStyle}>Accident coverage</div>
+          <label className="font-medium mb-1 block">Accident coverage</label>
           <select
-            style={inputStyle}
+            className="w-full p-2 rounded border border-gray-300"
             value={accidentCoverage}
             onChange={(e) => setAccidentCoverage(e.target.value)}
           >
@@ -249,7 +166,16 @@ export default function HomePage() {
       </div>
 
       <button
-        style={buttonStyle}
+        className={`
+          w-72 py-3 rounded-lg border-none 
+          font-semibold text-base text-white
+          ${isDisabled 
+            ? 'bg-gray-400 cursor-not-allowed' 
+            : isButtonPressed 
+              ? 'bg-green-600' 
+              : 'bg-blue-900 hover:bg-blue-800'
+          }
+        `}
         disabled={isDisabled}
         onMouseDown={() => setIsButtonPressed(true)}
         onMouseUp={() => setIsButtonPressed(false)}
