@@ -57,9 +57,9 @@ function getPlanType(row: PlanOption): string {
   return row.tariftyp || "TAR-DIV";
 }
 
-/** Helper: last working day before a certain date. */
+/** Helper: last working day before a certain date. (use const for ESLint prefer-const) */
 function lastWorkingDayBefore(year: number, monthIndex: number, day: number) {
-  let d = new Date(year, monthIndex, day);
+  const d = new Date(year, monthIndex, day);
   while (d.getDay() === 0 || d.getDay() === 6) {
     d.setDate(d.getDate() - 1);
   }
@@ -76,7 +76,7 @@ function calcDaysRemaining(type: "model" | "midYear" | "annual") {
     // last working day of this month
     const y = today.getFullYear();
     const m = today.getMonth();
-    const lastDay = new Date(y, m + 1, 0).getDate(); // e.g. 28/29/30/31
+    const lastDay = new Date(y, m + 1, 0).getDate();
     target = lastWorkingDayBefore(y, m, lastDay);
     deadlineLabel = `Days until ${target.toLocaleString("en-US", {
       month: "long",
@@ -96,7 +96,7 @@ function calcDaysRemaining(type: "model" | "midYear" | "annual") {
       day: "numeric",
     })}`;
   } else {
-    // annual => last working day before November 30
+    // annual => last working day before Nov 30
     const y = today.getFullYear();
     const candidate = lastWorkingDayBefore(y, 10, 30);
     if (candidate < today) {
@@ -209,9 +209,9 @@ function AnnualChangeBox() {
 }
 
 /** 
- * "Downgrade" plan boxes => first is current plan, then 
- * all same-insurer HMO/family/other. 
- * Shown in a grid of up to 4 per row, sorted by savings ascending. 
+ * "Downgrade" plan boxes => first is current plan, 
+ * then the same insurer's "TAR-HAM","TAR-HMO","TAR-DIV" 
+ * sorted by savings ascending.
  */
 function DowngradePlansBoxes({
   currentPlanRow,
@@ -222,7 +222,7 @@ function DowngradePlansBoxes({
 }) {
   const currentCost = parseFloat(currentPlanRow.praemie);
 
-  // first box => current plan => no savings
+  // first => current plan => no savings
   const boxes = [
     {
       label: currentPlanRow.plan_label || currentPlanRow.tarif || "",
@@ -233,13 +233,12 @@ function DowngradePlansBoxes({
     },
   ];
 
-  // find "downgrade" plan types => "TAR-HAM","TAR-HMO","TAR-DIV"
+  // gather "TAR-HAM","TAR-HMO","TAR-DIV" from same insurer
   const downgradeTypes = ["TAR-HAM", "TAR-HMO", "TAR-DIV"];
   const planRows = allPlansForInsurer.filter((p) =>
-    downgradeTypes.includes(getPlanType(p))
+    downgradeTypes.includes(p.tariftyp || "TAR-DIV")
   );
 
-  // compute difference => currentCost - planCost => if positive => cheaper => etc.
   const mapped = planRows.map((p) => {
     const planCost = parseFloat(p.praemie);
     const diff = (currentCost - planCost) * 12;
@@ -252,10 +251,8 @@ function DowngradePlansBoxes({
       rawDiff: diff,
     };
   });
-  // sort ascending by diff
   mapped.sort((a, b) => a.rawDiff - b.rawDiff);
 
-  // push them
   boxes.push(...mapped);
 
   return (
@@ -288,7 +285,7 @@ function DowngradePlansBoxes({
 }
 
 /* ------------------------------------------------------------------
-   The main WizardClient component with minimal changes
+   The main WizardClient component
 ------------------------------------------------------------------ */
 export default function WizardClient() {
   const searchParams = useSearchParams();
@@ -299,7 +296,6 @@ export default function WizardClient() {
   const queryAccident = searchParams.get("accident") || "";
   const queryPostalId = parseInt(searchParams.get("postalId") || "0", 10);
 
-  // Single source of truth for user inputs
   const [userInputs, setUserInputs] = useState<UserInputs>({
     yearOfBirth: 0,
     franchise: 0,
@@ -328,8 +324,8 @@ export default function WizardClient() {
     }
   }, [queryYob, queryFranchise, queryAccident, queryPostalId]);
 
-  const handleUserInputsChange = useCallback((newVals: Partial<UserInputs>) => {
-    setUserInputs((prev) => ({ ...prev, ...newVals }));
+  const handleUserInputsChange = useCallback((vals: Partial<UserInputs>) => {
+    setUserInputs((prev) => ({ ...prev, ...vals }));
   }, []);
 
   const [groupedByType, setGroupedByType] = useState<PlansByType>({
@@ -409,9 +405,8 @@ export default function WizardClient() {
     userInputs.unfalleinschluss,
   ]);
 
-  // Build the 4 top boxes
+  /** Build the 4 top boxes (existing logic). */
   function buildBoxes() {
-    // same code as original
     const hasNoData = TYPE_ORDER.every((t) => !groupedByType[t].length);
     if (hasNoData) {
       return TYPE_ORDER.map((typ) => ({
@@ -457,7 +452,6 @@ export default function WizardClient() {
         };
       });
     }
-
     let currentRow: PlanOption | null = null;
     let currentTyp = "TAR-DIV";
     for (const typ of TYPE_ORDER) {
@@ -488,7 +482,6 @@ export default function WizardClient() {
         costDiffClass: "",
       }));
     }
-
     const cm = parseFloat(currentRow.praemie);
     const box1 = {
       headerLine1: "Current plan",
@@ -538,7 +531,7 @@ export default function WizardClient() {
       };
     }
 
-    // box3 + box4 => cheapest from other categories
+    // cheapest from other categories => box3, box4
     const otherTypes = TYPE_ORDER.filter((t) => t !== currentTyp);
     const arrOthers: { row: PlanOption; cost: number }[] = [];
     for (const ot of otherTypes) {
@@ -624,52 +617,49 @@ export default function WizardClient() {
     return [box1, box2, box3, box4];
   }
 
-  /**
-   * Decide which new boxes to show. 
-   * Return an array of React.ReactNode 
+  /** 
+   * Decide which new boxes to show => model, midYear, annual
+   * plus the optional "downgrade" plans in between.
    */
   function decideNewBoxesToShow(): React.ReactNode[] {
-    const boxes: React.ReactNode[] = [];
-
-    // Only show if user picked a currentInsurer + currentPlan
+    const result: React.ReactNode[] = [];
     if (
       userInputs.currentInsurer !== "I have no insurer" &&
       userInputs.currentPlan
     ) {
-      // see if plan is standard-lower, standard-higher or else
       const isChild = userInputs.altersklasse === "AKL-KIN";
       const isLowestDed =
         (isChild && userInputs.franchise === 0) ||
         (!isChild && userInputs.franchise === 300);
 
-      // find current plan => see if "TAR-BASE"
+      // find if plan is TAR-BASE
       let currentPlanRow: PlanOption | null = null;
       let planType = "TAR-DIV";
 
       // check TAR-BASE
       if (groupedByType["TAR-BASE"]?.length) {
-        const found = groupedByType["TAR-BASE"].find(
+        const f = groupedByType["TAR-BASE"].find(
           (p) =>
             p.insurer_name === userInputs.currentInsurer &&
             p.tarif === userInputs.currentPlan
         );
-        if (found) {
-          currentPlanRow = found;
+        if (f) {
+          currentPlanRow = f;
           planType = "TAR-BASE";
         }
       }
-      // if not found => check other categories
+      // if not found => check other cats
       if (!currentPlanRow) {
         for (const cat of ["TAR-HAM", "TAR-HMO", "TAR-DIV"] as const) {
           const arr = groupedByType[cat];
           if (arr?.length) {
-            const f = arr.find(
+            const found = arr.find(
               (p) =>
                 p.insurer_name === userInputs.currentInsurer &&
                 p.tarif === userInputs.currentPlan
             );
-            if (f) {
-              currentPlanRow = f;
+            if (found) {
+              currentPlanRow = found;
               planType = cat;
               break;
             }
@@ -678,12 +668,10 @@ export default function WizardClient() {
       }
 
       if (planType === "TAR-BASE") {
-        // standard model
-        // show ModelChangeBox
-        boxes.push(<ModelChangeBox key="box-model" />);
-
-        // gather same insurer => hamper/hmo/div
+        // standard
+        result.push(<ModelChangeBox key="box-model" />);
         if (currentPlanRow) {
+          // gather same-insurer => hamper/hmo/div
           const sameInsurerPlans: PlanOption[] = [];
           ["TAR-HAM", "TAR-HMO", "TAR-DIV"].forEach((cat) => {
             if (groupedByType[cat]) {
@@ -694,7 +682,7 @@ export default function WizardClient() {
               });
             }
           });
-          boxes.push(
+          result.push(
             <DowngradePlansBoxes
               key="downgrade"
               currentPlanRow={currentPlanRow}
@@ -702,20 +690,17 @@ export default function WizardClient() {
             />
           );
         }
-
-        // if lowest => midYear, else annual
         if (isLowestDed) {
-          boxes.push(<MidYearChangeBox key="box-midYear" />);
+          result.push(<MidYearChangeBox key="box-midYear" />);
         } else {
-          boxes.push(<AnnualChangeBox key="box-annual" />);
+          result.push(<AnnualChangeBox key="box-annual" />);
         }
       } else {
-        // any other plan => annual only
-        boxes.push(<AnnualChangeBox key="box-annual" />);
+        // any other => annual
+        result.push(<AnnualChangeBox key="box-annual" />);
       }
     }
-
-    return boxes;
+    return result;
   }
 
   const topBoxes = buildBoxes();
@@ -739,15 +724,18 @@ export default function WizardClient() {
         <div className="max-w-[1100px] mx-auto flex flex-col md:flex-row gap-2 px-2">
           {/* Left => InputPanel */}
           <div className="w-full md:w-1/4 min-w-[280px]">
-            <InputPanel userInputs={userInputs} onUserInputsChange={handleUserInputsChange} />
+            <InputPanel
+              userInputs={userInputs}
+              onUserInputsChange={handleUserInputsChange}
+            />
           </div>
 
           {/* Right => new boxes + 4 top boxes + PlanOptionsPanel */}
           <div className="flex-1">
-            {/* 1) The new boxes (model/midYear/annual + optional downgrade) */}
+            {/* 1) The new boxes */}
             {newBoxes}
 
-            {/* 2) The 4 comparison boxes => same as original */}
+            {/* 2) The 4 comparison boxes */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
               {topBoxes.map((box, idx) => (
                 <div
@@ -796,7 +784,7 @@ export default function WizardClient() {
               ))}
             </div>
 
-            {/* 3) PlanOptionsPanel => read-only table of plan options */}
+            {/* PlanOptionsPanel => read-only table of plan options */}
             <PlanOptionsPanel userInputs={userInputs} />
           </div>
         </div>
