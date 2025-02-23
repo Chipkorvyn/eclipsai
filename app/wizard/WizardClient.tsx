@@ -112,7 +112,8 @@ function calcDaysAndDeadline(type: "model" | "midYear" | "annual"): {
 /**
  * A shared function to style the 3 boxes: 
  * "Insurance Model Change", "Mid-Year Change", "Annual Change"
- * with big day number left-aligned, text underneath, and a smaller color-coded box.
+ * With right-aligned day count, text, and a color-coded box.
+ * Also makes "Savings locked"/"Savings unlocked" bold, with the rest on a new line.
  */
 function BoxDesign({
   title,
@@ -132,7 +133,6 @@ function BoxDesign({
   let message = "";
 
   if (!active) {
-    // For Annual Change, make days & message dark grey
     if (title === "Annual Change") {
       colorClass = "text-gray-800";
       smallBoxClass = "bg-gray-100 border border-gray-800 text-gray-800";
@@ -157,21 +157,39 @@ function BoxDesign({
     }
   }
 
+  // Split out "Savings locked"/"Savings unlocked" as bold + rest on new line
+  let boldText = "";
+  let restText = "";
+  if (message.startsWith("Savings locked:")) {
+    boldText = "Savings locked";
+    restText = message.replace("Savings locked:", "").trim();
+  } else if (message.startsWith("Savings unlocked:")) {
+    boldText = "Savings unlocked";
+    restText = message.replace("Savings unlocked:", "").trim();
+  }
+
   return (
     <div className="bg-white shadow rounded p-4 mb-4">
-      {/* Title & subtitle => bigger text */}
-      <div className={`font-bold text-xl mb-1 ${colorClass}`}>{title}</div>
+      {/* Title & subtitle */}
+      <div className={`font-bold text-xl mb-1`}>{title}</div>
       <div className="text-lg mb-2">{subtitle}</div>
 
-      {/* Big day number => left-aligned */}
-      <div className={`text-4xl font-bold mb-1 ${colorClass} text-left`}>
+      {/* Days and "Days until..." => right-aligned */}
+      <div className={`text-4xl font-bold mb-1 ${colorClass} text-right`}>
         {daysRemaining}
       </div>
-      <div className="text-left text-sm italic mb-2">{`Days until ${deadlineLabel}`}</div>
+      <div className="text-right text-sm italic mb-2">{`Days until ${deadlineLabel}`}</div>
 
-      {/* smaller color-coded box */}
-      <div className={`rounded p-2 text-sm ${smallBoxClass} text-left`}>
-        {message}
+      {/* smaller color-coded box => right-aligned */}
+      <div className={`rounded p-2 text-sm ${smallBoxClass} text-right`}>
+        {boldText ? (
+          <>
+            <div className="font-bold">{boldText}</div>
+            <div>{restText}</div>
+          </>
+        ) : (
+          message
+        )}
       </div>
     </div>
   );
