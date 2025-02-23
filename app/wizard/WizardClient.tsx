@@ -1,5 +1,3 @@
-// File: app/wizard/WizardClient.tsx
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -112,118 +110,9 @@ function calcDaysAndDeadline(type: "model" | "midYear" | "annual"): {
 }
 
 /**
- * The "downgrade" table => no changes in logic. Only the 3 boxes changed style.
- */
-function DowngradePlansBoxes({
-  currentPlanRow,
-  allPlansForInsurer,
-}: {
-  currentPlanRow: PlanOption;
-  allPlansForInsurer: PlanOption[];
-}) {
-  const currentInsurer = currentPlanRow.insurer_name || "this insurer";
-  const currentCost = parseFloat(currentPlanRow.praemie);
-
-  function planTypeLabel(typ: string) {
-    if (typ === "TAR-HAM") return "Family doctor";
-    if (typ === "TAR-HMO") return "HMO";
-    return "Other plan types";
-  }
-
-  const rows: {
-    planType: string;
-    planName: string;
-    monthly: string;
-    annualSavings: string;
-  }[] = [];
-
-  // first => current plan
-  rows.push({
-    planType: TYPE_LABELS[currentPlanRow.tariftyp || "TAR-BASE"] || "Standard",
-    planName: currentPlanRow.plan_label || currentPlanRow.tarif || "",
-    monthly: formatMonthly(currentCost),
-    annualSavings: "Current plan",
-  });
-
-  const categories = ["TAR-HAM", "TAR-HMO", "TAR-DIV"] as const;
-  const grouped: Record<"TAR-HAM" | "TAR-HMO" | "TAR-DIV", PlanOption[]> = {
-    "TAR-HAM": [],
-    "TAR-HMO": [],
-    "TAR-DIV": [],
-  };
-  for (const p of allPlansForInsurer) {
-    const cat = (p.tariftyp || "TAR-DIV") as "TAR-HAM" | "TAR-HMO" | "TAR-DIV";
-    if (categories.includes(cat)) {
-      grouped[cat].push(p);
-    }
-  }
-  // sort => cheapest first
-  for (const cat of categories) {
-    grouped[cat].sort((a, b) => parseFloat(a.praemie) - parseFloat(b.praemie));
-  }
-
-  // push them in order => Family => HMO => Other
-  for (const cat of categories) {
-    for (const p of grouped[cat]) {
-      const cost = parseFloat(p.praemie);
-      const diff = (currentCost - cost) * 12;
-      const { text, show } = formatCostDiff(diff);
-      rows.push({
-        planType: planTypeLabel(p.tariftyp || "TAR-DIV"),
-        planName: p.plan_label || p.tarif || "",
-        monthly: formatMonthly(cost),
-        annualSavings: show ? text : "",
-      });
-    }
-  }
-
-  return (
-    <div className="bg-white rounded p-3 shadow mb-8">
-      <h3 className="text-lg font-bold mb-2">
-        {`Other plan models from ${currentInsurer}`}
-      </h3>
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left p-2 font-bold">Plan type</th>
-            <th className="text-left p-2 font-bold">Plan name</th>
-            <th className="text-left p-2 font-bold">Monthly premium</th>
-            <th className="text-left p-2 font-bold">Annual savings</th>
-            <th className="p-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, idx) => {
-            let colorClass = "";
-            if (r.annualSavings.startsWith("-")) colorClass = "text-green-600";
-            else if (r.annualSavings.startsWith("+"))
-              colorClass = "text-red-600";
-
-            return (
-              <tr key={idx} className="border-b">
-                <td className="p-2">{r.planType}</td>
-                <td className="p-2">{r.planName}</td>
-                <td className="p-2">{r.monthly}</td>
-                <td className={`p-2 ${colorClass}`}>{r.annualSavings}</td>
-                <td className="p-2">
-                  <a href="#" className="text-blue-600 underline cursor-pointer">
-                    View plan
-                  </a>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/** 
  * A shared function to style the 3 boxes: 
- * "Insurance Model Change", "Mid-Year Change", "Annual Change" 
- * with big day number left aligned, "Days until <date>" below, 
- * and a smaller colored warning box below that. 
+ * "Insurance Model Change", "Mid-Year Change", "Annual Change"
+ * with big day number left-aligned, text underneath, and a smaller color-coded box.
  */
 function BoxDesign({
   title,
@@ -238,17 +127,23 @@ function BoxDesign({
   daysRemaining: number;
   deadlineLabel: string;
 }) {
-  // If not active => black/grey
-  // If active => either green or red if days<=5
   let colorClass = "";
   let smallBoxClass = "";
   let message = "";
 
   if (!active) {
-    colorClass = "text-black"; // title color black
-    smallBoxClass = "bg-gray-300 border border-gray-600 text-black";
-    message =
-      "Savings locked: new premiums will be available beginning of October.";
+    // For Annual Change, make days & message dark grey
+    if (title === "Annual Change") {
+      colorClass = "text-gray-800";
+      smallBoxClass = "bg-gray-100 border border-gray-800 text-gray-800";
+      message =
+        "Savings locked: new premiums will be available beginning of October.";
+    } else {
+      colorClass = "text-black";
+      smallBoxClass = "bg-gray-300 border border-gray-600 text-black";
+      message =
+        "Savings locked: new premiums will be available beginning of October.";
+    }
   } else {
     const isShortDeadline = daysRemaining <= 5;
     if (isShortDeadline) {
@@ -264,23 +159,24 @@ function BoxDesign({
 
   return (
     <div className="bg-white shadow rounded p-4 mb-4">
-      {/* Title & subtitle => bigger, use colorClass for title */}
+      {/* Title & subtitle => bigger text */}
       <div className={`font-bold text-xl mb-1 ${colorClass}`}>{title}</div>
       <div className="text-lg mb-2">{subtitle}</div>
 
-      {/* Big day number left-aligned in colorClass */}
-      <div className={`text-4xl font-bold mb-1 ${colorClass}`}>
+      {/* Big day number => left-aligned */}
+      <div className={`text-4xl font-bold mb-1 ${colorClass} text-left`}>
         {daysRemaining}
       </div>
-      <div className="text-sm italic mb-2">{`Days until ${deadlineLabel}`}</div>
+      <div className="text-left text-sm italic mb-2">{`Days until ${deadlineLabel}`}</div>
 
-      {/* smaller box => color-coded */}
-      <div className={`rounded p-2 text-sm ${smallBoxClass}`}>{message}</div>
+      {/* smaller color-coded box */}
+      <div className={`rounded p-2 text-sm ${smallBoxClass} text-left`}>
+        {message}
+      </div>
     </div>
   );
 }
 
-/** The three specialized boxes using BoxDesign. */
 function ModelChangeBox({
   active,
   daysRemaining,
@@ -341,7 +237,114 @@ function AnnualChangeBox({
   );
 }
 
-/** The main wizard logic => monthly boxes + plan comparisons, etc. */
+/**
+ * If the difference is > 0 => cheaper => show “-xxx CHF/year” (green)
+ * If < 0 => more expensive => show “+xxx CHF/year” (red)
+ * If zero => hide
+ */
+function DowngradePlansBoxes({
+  currentPlanRow,
+  allPlansForInsurer,
+}: {
+  currentPlanRow: PlanOption;
+  allPlansForInsurer: PlanOption[];
+}) {
+  const currentInsurer = currentPlanRow.insurer_name || "this insurer";
+  const currentCost = parseFloat(currentPlanRow.praemie);
+
+  function planTypeLabel(typ: string) {
+    if (typ === "TAR-HAM") return "Family doctor";
+    if (typ === "TAR-HMO") return "HMO";
+    return "Other plan types";
+  }
+
+  const rows: {
+    planType: string;
+    planName: string;
+    monthly: string;
+    annualSavings: string;
+  }[] = [];
+
+  // current plan
+  rows.push({
+    planType: TYPE_LABELS[currentPlanRow.tariftyp || "TAR-BASE"] || "Standard",
+    planName: currentPlanRow.plan_label || currentPlanRow.tarif || "",
+    monthly: formatMonthly(currentCost),
+    annualSavings: "Current plan",
+  });
+
+  const categories = ["TAR-HAM", "TAR-HMO", "TAR-DIV"] as const;
+  const grouped: Record<"TAR-HAM" | "TAR-HMO" | "TAR-DIV", PlanOption[]> = {
+    "TAR-HAM": [],
+    "TAR-HMO": [],
+    "TAR-DIV": [],
+  };
+  for (const p of allPlansForInsurer) {
+    const cat = (p.tariftyp || "TAR-DIV") as "TAR-HAM" | "TAR-HMO" | "TAR-DIV";
+    if (categories.includes(cat)) {
+      grouped[cat].push(p);
+    }
+  }
+  // sort => cheapest first
+  for (const cat of categories) {
+    grouped[cat].sort((a, b) => parseFloat(a.praemie) - parseFloat(b.praemie));
+  }
+
+  for (const cat of categories) {
+    for (const p of grouped[cat]) {
+      const cost = parseFloat(p.praemie);
+      const diff = (currentCost - cost) * 12;
+      const { text, show } = formatCostDiff(diff);
+      rows.push({
+        planType: planTypeLabel(p.tariftyp || "TAR-DIV"),
+        planName: p.plan_label || p.tarif || "",
+        monthly: formatMonthly(cost),
+        annualSavings: show ? text : "",
+      });
+    }
+  }
+
+  return (
+    <div className="bg-white rounded p-3 shadow mb-8">
+      <h3 className="text-lg font-bold mb-2">
+        {`Other plan models from ${currentInsurer}`}
+      </h3>
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b">
+            <th className="text-left p-2 font-bold">Plan type</th>
+            <th className="text-left p-2 font-bold">Plan name</th>
+            <th className="text-left p-2 font-bold">Monthly premium</th>
+            <th className="text-left p-2 font-bold">Annual savings</th>
+            <th className="p-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, idx) => {
+            let colorClass = "";
+            if (r.annualSavings.startsWith("-")) colorClass = "text-green-600";
+            else if (r.annualSavings.startsWith("+")) colorClass = "text-red-600";
+
+            return (
+              <tr key={idx} className="border-b">
+                <td className="p-2">{r.planType}</td>
+                <td className="p-2">{r.planName}</td>
+                <td className="p-2">{r.monthly}</td>
+                <td className={`p-2 ${colorClass}`}>{r.annualSavings}</td>
+                <td className="p-2">
+                  <a href="#" className="text-blue-600 underline cursor-pointer">
+                    View plan
+                  </a>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function WizardClient() {
   const searchParams = useSearchParams();
 
@@ -460,10 +463,6 @@ export default function WizardClient() {
     userInputs.unfalleinschluss,
   ]);
 
-  /** 
-   * Return boxes => model, midYear, annual => monthly logic 
-   * Then each box => pass to the new big day layout
-   */
   function decideNewBoxesToShow(): React.ReactNode[] {
     const result: React.ReactNode[] = [];
     if (
@@ -510,7 +509,6 @@ export default function WizardClient() {
     const now = new Date();
     const month = now.getMonth(); // 0-based
 
-    // We'll use calcDaysAndDeadline(...) => {days,deadlineLabel}
     function getModelBox() {
       const { days, deadlineLabel } = calcDaysAndDeadline("model");
       return (
@@ -534,7 +532,6 @@ export default function WizardClient() {
       );
     }
     function getAnnualBox(active: boolean) {
-      // if active => we do day logic else locked
       const { days, deadlineLabel } = calcDaysAndDeadline("annual");
       return (
         <AnnualChangeBox
@@ -550,7 +547,6 @@ export default function WizardClient() {
     if (planType === "TAR-BASE" && month !== 10) {
       result.push(getModelBox());
       if (foundStandardPlan) {
-        // gather hamper/hmo/etc
         const sameInsurerPlans: PlanOption[] = [];
         ["TAR-HAM", "TAR-HMO", "TAR-DIV"].forEach((cat) => {
           if (groupedByType[cat]?.length) {
@@ -597,7 +593,6 @@ export default function WizardClient() {
     }
   }
 
-  // 4 top comparison boxes
   function buildBoxes() {
     const hasNoData = TYPE_ORDER.every((t) => !groupedByType[t].length);
     if (hasNoData) {
@@ -844,10 +839,10 @@ export default function WizardClient() {
 
           {/* Right => newBoxes + 4 top boxes => PlanOptionsPanel */}
           <div className="flex-1">
-            {/* 1) The 3 monthly logic boxes => each is a big day + smaller color box */}
+            {/* 1) The 3 monthly logic boxes */}
             {newBoxes}
 
-            {/* 2) The four comparison boxes => unchanged logic */}
+            {/* 2) The four comparison boxes */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {topBoxes.map((box, idx) => (
                 <div
@@ -896,7 +891,7 @@ export default function WizardClient() {
               ))}
             </div>
 
-            {/* 3) The final PlanOptionsPanel => "Annual savings" column header */}
+            {/* 3) The final PlanOptionsPanel */}
             <PlanOptionsPanel userInputs={userInputs} />
           </div>
         </div>

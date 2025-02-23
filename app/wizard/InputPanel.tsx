@@ -1,5 +1,3 @@
-// File: app/wizard/InputPanel.tsx
-
 "use client";
 
 import React, {
@@ -271,7 +269,7 @@ export default function InputPanel({
     localInsurer,
     localPlan,
     selectedPostal,
-    commitChanges, // Important: to fix ESLint “missing dep” warning
+    commitChanges,
   ]);
 
   // ============ Handlers ============
@@ -537,13 +535,15 @@ export default function InputPanel({
 
   return (
     <div className="flex flex-col">
-      {/* Box 1: Current plan */}
+      {/* Box 1: Select to Compare */}
       <div className="bg-white rounded-lg p-4 mb-4">
-        <h4 className="text-lg font-semibold mb-2">Current plan</h4>
+        <h4 className="text-lg font-semibold mb-2">Select to compare</h4>
 
         <label className="block font-medium mb-1">Current Insurer</label>
         <select
-          className="w-full p-2 rounded border border-gray-300 mb-4"
+          className={`w-full p-2 rounded border border-gray-300 mb-4 ${
+            !localInsurerBagCode ? "text-red-600" : ""
+          }`}
           value={localInsurerBagCode}
           onChange={handleInsurerChange}
         >
