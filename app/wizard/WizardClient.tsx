@@ -1,3 +1,5 @@
+// File: app/wizard/WizardClient.tsx
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -9,7 +11,7 @@ import PlanOptionsPanel from "./PlanOptionsPanel";
 interface PlanOption {
   id: number;
   tarif: string;
-  tariftyp: string;
+  tariftyp: string | null;
   tarifbezeichnung: string | null;
   franchise: string;
   unfalleinschluss: string;
@@ -26,38 +28,268 @@ const TYPE_LABELS: Record<string, string> = {
   "TAR-BASE": "Standard",
   "TAR-HAM": "Family doctor",
   "TAR-HMO": "HMO",
-  "TAR-DIV": "Other plan types", // updated label
+  "TAR-DIV": "Other plan types",
 };
 
-/** Convert a number to e.g. “120 CHF/month” (rounded). */
+/** Convert monthly premium => e.g. "120 CHF/month". */
 function formatMonthly(val: number): string {
   return `${Math.round(val)} CHF/month`;
 }
 
 /**
- * We show a ± sign for cost difference:
- *  - If cheaper => “-xxx CHF/year” in green
- *  - If more expensive => “+xxx CHF/year” in red
- *  - If zero => hide
+ * Show ± sign for cost difference:
+ * - cheaper => “-xxx CHF/year” in green
+ * - more expensive => “+xxx CHF/year” in red
+ * - zero => hide
  */
 function formatCostDiff(diff: number) {
   const absVal = Math.abs(Math.round(diff));
-  if (absVal === 0) {
-    return { text: "", colorClass: "", show: false };
-  }
-  // diff>0 => cheaper => minus sign (green)
-  // diff<0 => more expensive => plus sign (red)
+  if (absVal === 0) return { text: "", colorClass: "", show: false };
+
   const sign = diff > 0 ? "-" : "+";
   const colorClass = diff > 0 ? "text-green-600" : "text-red-600";
   const text = `${sign}${absVal} CHF/year`;
   return { text, colorClass, show: true };
 }
 
-/** Return the plan type from row, fallback 'TAR-DIV' if missing. */
+/** Return the plan type or fallback to 'TAR-DIV'. */
 function getPlanType(row: PlanOption): string {
   return row.tariftyp || "TAR-DIV";
 }
 
+/** Helper: last working day before a certain date. */
+function lastWorkingDayBefore(year: number, monthIndex: number, day: number) {
+  let d = new Date(year, monthIndex, day);
+  while (d.getDay() === 0 || d.getDay() === 6) {
+    d.setDate(d.getDate() - 1);
+  }
+  return d;
+}
+
+/** calcDaysRemaining for model, midYear, or annual. */
+function calcDaysRemaining(type: "model" | "midYear" | "annual") {
+  const today = new Date();
+  let target: Date;
+  let deadlineLabel = "";
+
+  if (type === "model") {
+    // last working day of this month
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    const lastDay = new Date(y, m + 1, 0).getDate(); // e.g. 28/29/30/31
+    target = lastWorkingDayBefore(y, m, lastDay);
+    deadlineLabel = `Days until ${target.toLocaleString("en-US", {
+      month: "long",
+      day: "numeric",
+    })}`;
+  } else if (type === "midYear") {
+    // last working day before March 31
+    const y = today.getFullYear();
+    const candidate = lastWorkingDayBefore(y, 2, 31);
+    if (candidate < today) {
+      target = lastWorkingDayBefore(y + 1, 2, 31);
+    } else {
+      target = candidate;
+    }
+    deadlineLabel = `Days until ${target.toLocaleString("en-US", {
+      month: "long",
+      day: "numeric",
+    })}`;
+  } else {
+    // annual => last working day before November 30
+    const y = today.getFullYear();
+    const candidate = lastWorkingDayBefore(y, 10, 30);
+    if (candidate < today) {
+      target = lastWorkingDayBefore(y + 1, 10, 30);
+    } else {
+      target = candidate;
+    }
+    deadlineLabel = `Days until ${target.toLocaleString("en-US", {
+      month: "long",
+      day: "numeric",
+    })}`;
+  }
+
+  const diffMs = target.getTime() - today.getTime();
+  const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  return { daysRemaining: days, deadlineLabel };
+}
+
+/** If days < 5 => show urgent. */
+function UrgentWarning() {
+  return (
+    <div className="bg-red-100 text-red-700 p-2 rounded mt-2 text-sm">
+      <strong>Urgent:</strong> Less than 5 days remaining. Consider express mail or calling the insurance company.
+    </div>
+  );
+}
+
+/** The 3 new box components. */
+function ModelChangeBox() {
+  const { daysRemaining, deadlineLabel } = calcDaysRemaining("model");
+
+  return (
+    <div className="bg-white rounded p-3 shadow flex flex-col md:flex-row gap-2 items-start mb-3">
+      <div className="flex-grow">
+        <div className="text-lg font-bold text-purple-700">
+          Insurance Model Change
+        </div>
+        <div className="text-gray-600 text-sm mb-2">
+          Switch to family doctor, HMO or telemedicine model
+        </div>
+      </div>
+      <div className="text-right">
+        <div
+          className={`text-4xl font-bold ${
+            daysRemaining <= 5 ? "text-red-600" : "text-purple-600"
+          }`}
+        >
+          {daysRemaining}
+        </div>
+        <div className="text-sm text-gray-600">{deadlineLabel}</div>
+        {daysRemaining <= 5 && <UrgentWarning />}
+      </div>
+    </div>
+  );
+}
+
+function MidYearChangeBox() {
+  const { daysRemaining, deadlineLabel } = calcDaysRemaining("midYear");
+
+  return (
+    <div className="bg-white rounded p-3 shadow flex flex-col md:flex-row gap-2 items-start mb-3">
+      <div className="flex-grow">
+        <div className="text-lg font-bold text-green-700">Mid-Year Change</div>
+        <div className="text-gray-600 text-sm mb-2">
+          Switch provider with new policy starting July 1
+        </div>
+      </div>
+      <div className="text-right">
+        <div
+          className={`text-4xl font-bold ${
+            daysRemaining <= 5 ? "text-red-600" : "text-green-600"
+          }`}
+        >
+          {daysRemaining}
+        </div>
+        <div className="text-sm text-gray-600">{deadlineLabel}</div>
+        {daysRemaining <= 5 && <UrgentWarning />}
+      </div>
+    </div>
+  );
+}
+
+function AnnualChangeBox() {
+  const { daysRemaining, deadlineLabel } = calcDaysRemaining("annual");
+
+  return (
+    <div className="bg-white rounded p-3 shadow flex flex-col md:flex-row gap-2 items-start mb-3">
+      <div className="flex-grow">
+        <div className="text-lg font-bold text-blue-700">Annual Change</div>
+        <div className="text-gray-600 text-sm mb-2">
+          Switch provider for next year <br />
+          <span className="text-xs text-gray-500">
+            (Current prices are for reference; new rates by Oct 1)
+          </span>
+        </div>
+      </div>
+      <div className="text-right">
+        <div
+          className={`text-4xl font-bold ${
+            daysRemaining <= 5 ? "text-red-600" : "text-blue-600"
+          }`}
+        >
+          {daysRemaining}
+        </div>
+        <div className="text-sm text-gray-600">{deadlineLabel}</div>
+        {daysRemaining <= 5 && <UrgentWarning />}
+      </div>
+    </div>
+  );
+}
+
+/** 
+ * "Downgrade" plan boxes => first is current plan, then 
+ * all same-insurer HMO/family/other. 
+ * Shown in a grid of up to 4 per row, sorted by savings ascending. 
+ */
+function DowngradePlansBoxes({
+  currentPlanRow,
+  allPlansForInsurer,
+}: {
+  currentPlanRow: PlanOption;
+  allPlansForInsurer: PlanOption[];
+}) {
+  const currentCost = parseFloat(currentPlanRow.praemie);
+
+  // first box => current plan => no savings
+  const boxes = [
+    {
+      label: currentPlanRow.plan_label || currentPlanRow.tarif || "",
+      monthly: `${Math.round(currentCost)} CHF/month`,
+      diffText: "",
+      diffClass: "",
+      rawDiff: 0,
+    },
+  ];
+
+  // find "downgrade" plan types => "TAR-HAM","TAR-HMO","TAR-DIV"
+  const downgradeTypes = ["TAR-HAM", "TAR-HMO", "TAR-DIV"];
+  const planRows = allPlansForInsurer.filter((p) =>
+    downgradeTypes.includes(getPlanType(p))
+  );
+
+  // compute difference => currentCost - planCost => if positive => cheaper => etc.
+  const mapped = planRows.map((p) => {
+    const planCost = parseFloat(p.praemie);
+    const diff = (currentCost - planCost) * 12;
+    const { text, colorClass, show } = formatCostDiff(diff);
+    return {
+      label: p.plan_label || p.tarif || "",
+      monthly: `${Math.round(planCost)} CHF/month`,
+      diffText: show ? text : "",
+      diffClass: colorClass,
+      rawDiff: diff,
+    };
+  });
+  // sort ascending by diff
+  mapped.sort((a, b) => a.rawDiff - b.rawDiff);
+
+  // push them
+  boxes.push(...mapped);
+
+  return (
+    <div className="mb-3">
+      <div className="text-base font-semibold mb-2">
+        Other plan models from the same insurer:
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        {boxes.map((bx, idx) => (
+          <div
+            key={idx}
+            className="bg-white rounded p-2 shadow flex flex-col h-full"
+          >
+            <div className="text-sm font-bold mb-1">{bx.label}</div>
+            <div className="text-sm text-blue-600 mb-1">{bx.monthly}</div>
+            {bx.diffText && (
+              <div className={`text-sm font-semibold ${bx.diffClass} mb-2`}>
+                {bx.diffText}
+              </div>
+            )}
+            <div className="mt-auto" />
+            <button className="bg-blue-600 text-white rounded px-2 py-1 text-sm">
+              View
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   The main WizardClient component with minimal changes
+------------------------------------------------------------------ */
 export default function WizardClient() {
   const searchParams = useSearchParams();
 
@@ -82,7 +314,6 @@ export default function WizardClient() {
     postalId: 0,
   });
 
-  // read from query on mount
   useEffect(() => {
     const updates: Partial<UserInputs> = {};
     if (queryYob > 0) updates.yearOfBirth = queryYob;
@@ -97,14 +328,10 @@ export default function WizardClient() {
     }
   }, [queryYob, queryFranchise, queryAccident, queryPostalId]);
 
-  // Child calls this => we update userInputs if changed
   const handleUserInputsChange = useCallback((newVals: Partial<UserInputs>) => {
-    setUserInputs((prev) => {
-      return { ...prev, ...newVals };
-    });
+    setUserInputs((prev) => ({ ...prev, ...newVals }));
   }, []);
 
-  // =========== Premium Data / 4 Boxes logic ===========
   const [groupedByType, setGroupedByType] = useState<PlansByType>({
     "TAR-BASE": [],
     "TAR-HAM": [],
@@ -123,7 +350,6 @@ export default function WizardClient() {
       return;
     }
     const isChild = userInputs.altersklasse === "AKL-KIN";
-    // if franchise is too small, skip
     if (
       (!isChild && userInputs.franchise < 300) ||
       (isChild && userInputs.franchise < 0)
@@ -160,7 +386,6 @@ export default function WizardClient() {
           if (!newGrouped[t]) newGrouped[t] = [];
           newGrouped[t].push(row);
         });
-        // sort by praemie
         Object.keys(newGrouped).forEach((t) => {
           newGrouped[t].sort(
             (a, b) => parseFloat(a.praemie) - parseFloat(b.praemie)
@@ -184,8 +409,9 @@ export default function WizardClient() {
     userInputs.unfalleinschluss,
   ]);
 
-  /** Build top 4 boxes with cost difference. */
+  // Build the 4 top boxes
   function buildBoxes() {
+    // same code as original
     const hasNoData = TYPE_ORDER.every((t) => !groupedByType[t].length);
     if (hasNoData) {
       return TYPE_ORDER.map((typ) => ({
@@ -200,8 +426,6 @@ export default function WizardClient() {
         costDiffClass: "",
       }));
     }
-
-    // If no currentPlan => show cheapest
     if (!userInputs.currentPlan) {
       return TYPE_ORDER.map((typ) => {
         const arr = groupedByType[typ];
@@ -234,25 +458,24 @@ export default function WizardClient() {
       });
     }
 
-    // else => user has a current plan
     let currentRow: PlanOption | null = null;
     let currentTyp = "TAR-DIV";
     for (const typ of TYPE_ORDER) {
       const arr = groupedByType[typ];
-      if (!arr || !arr.length) continue;
-      const found = arr.find(
-        (p) =>
-          p.insurer_name === userInputs.currentInsurer &&
-          p.tarif === userInputs.currentPlan
-      );
-      if (found) {
-        currentRow = found;
-        currentTyp = typ;
-        break;
+      if (arr && arr.length) {
+        const found = arr.find(
+          (p) =>
+            p.insurer_name === userInputs.currentInsurer &&
+            p.tarif === userInputs.currentPlan
+        );
+        if (found) {
+          currentRow = found;
+          currentTyp = typ;
+          break;
+        }
       }
     }
     if (!currentRow) {
-      // fallback => show “Current plan” in box1 but no data
       return TYPE_ORDER.map((typ, idx) => ({
         headerLine1: idx === 0 ? "Current plan" : "Cheapest option",
         headerLine2: TYPE_LABELS[typ],
@@ -267,8 +490,6 @@ export default function WizardClient() {
     }
 
     const cm = parseFloat(currentRow.praemie);
-
-    // #1 => current plan => no difference displayed
     const box1 = {
       headerLine1: "Current plan",
       headerLine2: TYPE_LABELS[currentTyp],
@@ -281,14 +502,11 @@ export default function WizardClient() {
       costDiffClass: "",
     };
 
-    // #2 => cheapest in same type
+    // cheapest in same type => box2
     const arrSame = groupedByType[currentTyp] || [];
     const cheapestSame = arrSame.find(
       (p) =>
-        !(
-          p.insurer_name === userInputs.currentInsurer &&
-          p.tarif === userInputs.currentPlan
-        )
+        !(p.insurer_name === userInputs.currentInsurer && p.tarif === userInputs.currentPlan)
     );
     let box2;
     if (!cheapestSame) {
@@ -305,9 +523,8 @@ export default function WizardClient() {
       };
     } else {
       const c2m = parseFloat(cheapestSame.praemie);
-      // positive => c2m is cheaper => “-xxx CHF/year”
       const diff2 = (cm - c2m) * 12;
-      const { text: diffText, colorClass, show } = formatCostDiff(diff2);
+      const d2 = formatCostDiff(diff2);
       box2 = {
         headerLine1: "Cheapest option",
         headerLine2: TYPE_LABELS[currentTyp],
@@ -316,24 +533,24 @@ export default function WizardClient() {
         insurer: cheapestSame.insurer_name || "(??)",
         planName: cheapestSame.plan_label || cheapestSame.tarif || "",
         monthly: formatMonthly(c2m),
-        costDiffText: show ? diffText : "",
-        costDiffClass: colorClass,
+        costDiffText: d2.show ? d2.text : "",
+        costDiffClass: d2.colorClass,
       };
     }
 
-    // #3 & #4 => cheapest from other categories
+    // box3 + box4 => cheapest from other categories
     const otherTypes = TYPE_ORDER.filter((t) => t !== currentTyp);
     const arrOthers: { row: PlanOption; cost: number }[] = [];
     for (const ot of otherTypes) {
-      const arr2 = groupedByType[ot] || [];
-      if (arr2.length > 0) {
+      const arr2 = groupedByType[ot];
+      if (arr2 && arr2.length) {
         arrOthers.push({ row: arr2[0], cost: parseFloat(arr2[0].praemie) });
       }
     }
     arrOthers.sort((a, b) => a.cost - b.cost);
 
     let box3, box4;
-    if (!arrOthers.length) {
+    if (arrOthers.length === 0) {
       box3 = {
         headerLine1: "Cheapest option",
         headerLine2: "",
@@ -407,7 +624,102 @@ export default function WizardClient() {
     return [box1, box2, box3, box4];
   }
 
+  /**
+   * Decide which new boxes to show. 
+   * Return an array of React.ReactNode 
+   */
+  function decideNewBoxesToShow(): React.ReactNode[] {
+    const boxes: React.ReactNode[] = [];
+
+    // Only show if user picked a currentInsurer + currentPlan
+    if (
+      userInputs.currentInsurer !== "I have no insurer" &&
+      userInputs.currentPlan
+    ) {
+      // see if plan is standard-lower, standard-higher or else
+      const isChild = userInputs.altersklasse === "AKL-KIN";
+      const isLowestDed =
+        (isChild && userInputs.franchise === 0) ||
+        (!isChild && userInputs.franchise === 300);
+
+      // find current plan => see if "TAR-BASE"
+      let currentPlanRow: PlanOption | null = null;
+      let planType = "TAR-DIV";
+
+      // check TAR-BASE
+      if (groupedByType["TAR-BASE"]?.length) {
+        const found = groupedByType["TAR-BASE"].find(
+          (p) =>
+            p.insurer_name === userInputs.currentInsurer &&
+            p.tarif === userInputs.currentPlan
+        );
+        if (found) {
+          currentPlanRow = found;
+          planType = "TAR-BASE";
+        }
+      }
+      // if not found => check other categories
+      if (!currentPlanRow) {
+        for (const cat of ["TAR-HAM", "TAR-HMO", "TAR-DIV"] as const) {
+          const arr = groupedByType[cat];
+          if (arr?.length) {
+            const f = arr.find(
+              (p) =>
+                p.insurer_name === userInputs.currentInsurer &&
+                p.tarif === userInputs.currentPlan
+            );
+            if (f) {
+              currentPlanRow = f;
+              planType = cat;
+              break;
+            }
+          }
+        }
+      }
+
+      if (planType === "TAR-BASE") {
+        // standard model
+        // show ModelChangeBox
+        boxes.push(<ModelChangeBox key="box-model" />);
+
+        // gather same insurer => hamper/hmo/div
+        if (currentPlanRow) {
+          const sameInsurerPlans: PlanOption[] = [];
+          ["TAR-HAM", "TAR-HMO", "TAR-DIV"].forEach((cat) => {
+            if (groupedByType[cat]) {
+              groupedByType[cat].forEach((p) => {
+                if (p.insurer_name === currentPlanRow?.insurer_name) {
+                  sameInsurerPlans.push(p);
+                }
+              });
+            }
+          });
+          boxes.push(
+            <DowngradePlansBoxes
+              key="downgrade"
+              currentPlanRow={currentPlanRow}
+              allPlansForInsurer={sameInsurerPlans}
+            />
+          );
+        }
+
+        // if lowest => midYear, else annual
+        if (isLowestDed) {
+          boxes.push(<MidYearChangeBox key="box-midYear" />);
+        } else {
+          boxes.push(<AnnualChangeBox key="box-annual" />);
+        }
+      } else {
+        // any other plan => annual only
+        boxes.push(<AnnualChangeBox key="box-annual" />);
+      }
+    }
+
+    return boxes;
+  }
+
   const topBoxes = buildBoxes();
+  const newBoxes = decideNewBoxesToShow();
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -423,26 +735,25 @@ export default function WizardClient() {
         </div>
       </div>
 
-      <div className="bg-slate-300 flex-grow py-4">
+      <div className="bg-gray-100 flex-grow py-4">
         <div className="max-w-[1100px] mx-auto flex flex-col md:flex-row gap-2 px-2">
           {/* Left => InputPanel */}
           <div className="w-full md:w-1/4 min-w-[280px]">
-            <InputPanel
-              userInputs={userInputs}
-              onUserInputsChange={handleUserInputsChange}
-            />
+            <InputPanel userInputs={userInputs} onUserInputsChange={handleUserInputsChange} />
           </div>
 
-          {/* Right => top boxes => PlanOptionsPanel */}
+          {/* Right => new boxes + 4 top boxes + PlanOptionsPanel */}
           <div className="flex-1">
-            {/* 4 top boxes => updated styling */}
+            {/* 1) The new boxes (model/midYear/annual + optional downgrade) */}
+            {newBoxes}
+
+            {/* 2) The 4 comparison boxes => same as original */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
               {topBoxes.map((box, idx) => (
                 <div
                   key={idx}
                   className="bg-white rounded-[6px] overflow-hidden flex flex-col h-full"
                 >
-                  {/* Header => same size as insurer (text-lg) */}
                   <div
                     style={{ background: box.headerColor }}
                     className="text-white p-2 font-bold text-lg text-center leading-[1.3]"
@@ -451,22 +762,16 @@ export default function WizardClient() {
                     <div>{box.headerLine2}</div>
                   </div>
 
-                  {/* Content => grow to align bottoms */}
                   <div className="p-3 flex-1 flex flex-col">
-                    {/* Plan type => normal text */}
                     <div className="text-base mb-1">{box.planType}</div>
-                    {/* Insurer name => text-lg, blue */}
                     <div className="text-lg font-bold mb-1 text-blue-600">
                       {box.insurer}
                     </div>
                     <div className="text-sm mb-2">{box.planName}</div>
 
-                    {/* Premium => same size as insurer name, also blue */}
                     <div className="text-lg text-blue-600 mb-1">
                       {box.monthly}
                     </div>
-
-                    {/* One tick smaller => text-xl */}
                     {box.costDiffText && (
                       <div
                         className={`text-xl font-semibold ${box.costDiffClass} mb-2`}
@@ -475,7 +780,6 @@ export default function WizardClient() {
                       </div>
                     )}
 
-                    {/* Spacer => push button down */}
                     <div className="flex-grow" />
                     <div>
                       <button className="px-4 py-2 rounded bg-blue-600 text-white cursor-pointer text-base whitespace-nowrap">
@@ -492,7 +796,7 @@ export default function WizardClient() {
               ))}
             </div>
 
-            {/* PlanOptionsPanel => read-only table of plan options */}
+            {/* 3) PlanOptionsPanel => read-only table of plan options */}
             <PlanOptionsPanel userInputs={userInputs} />
           </div>
         </div>
