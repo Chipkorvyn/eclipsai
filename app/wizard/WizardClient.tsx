@@ -38,18 +38,17 @@ function formatMonthly(val: number): string {
 
 /**
  * ± sign for cost difference:
- * - cheaper => “-xxx CHF/year” in green
- * - more expensive => “+xxx CHF/year” in red
+ * - cheaper => “-xxx CHF/year” 
+ * - more expensive => “+xxx CHF/year”
  * - zero => hide
  */
 function formatCostDiff(diff: number) {
   const absVal = Math.abs(Math.round(diff));
-  if (absVal === 0) return { text: "", colorClass: "", show: false };
+  if (absVal === 0) return { text: "", show: false };
 
   const sign = diff > 0 ? "-" : "+";
-  const colorClass = diff > 0 ? "text-green-600" : "text-red-600";
   const text = `${sign}${absVal} CHF/year`;
-  return { text, colorClass, show: true };
+  return { text, show: true };
 }
 
 /** Return the plan type or fallback to 'TAR-DIV'. */
@@ -57,7 +56,7 @@ function getPlanType(row: PlanOption): string {
   return row.tariftyp || "TAR-DIV";
 }
 
-/** Helper: last working day before a certain date. */
+/** Helper: find the last working day before (year, monthIndex, day). */
 function lastWorkingDayBefore(year: number, monthIndex: number, day: number) {
   const d = new Date(year, monthIndex, day);
   while (d.getDay() === 0 || d.getDay() === 6) {
@@ -66,22 +65,23 @@ function lastWorkingDayBefore(year: number, monthIndex: number, day: number) {
   return d;
 }
 
-/** calcDaysRemaining for model, midYear, or annual. */
+/**
+ * Calculate how many days remain until the relevant last working day:
+ * - "model": last day of this month
+ * - "midYear": last day before March 31
+ * - "annual": last day before Nov 30
+ */
 function calcDaysRemaining(type: "model" | "midYear" | "annual") {
   const today = new Date();
   let target: Date;
-  let deadlineLabel = "";
 
   if (type === "model") {
     const y = today.getFullYear();
     const m = today.getMonth();
     const lastDay = new Date(y, m + 1, 0).getDate();
     target = lastWorkingDayBefore(y, m, lastDay);
-    deadlineLabel = `Days until ${target.toLocaleString("en-US", {
-      month: "long",
-      day: "numeric",
-    })}`;
   } else if (type === "midYear") {
+    // last working day before March 31
     const y = today.getFullYear();
     const candidate = lastWorkingDayBefore(y, 2, 31);
     if (candidate < today) {
@@ -89,10 +89,6 @@ function calcDaysRemaining(type: "model" | "midYear" | "annual") {
     } else {
       target = candidate;
     }
-    deadlineLabel = `Days until ${target.toLocaleString("en-US", {
-      month: "long",
-      day: "numeric",
-    })}`;
   } else {
     // annual => last working day before Nov 30
     const y = today.getFullYear();
@@ -102,121 +98,134 @@ function calcDaysRemaining(type: "model" | "midYear" | "annual") {
     } else {
       target = candidate;
     }
-    deadlineLabel = `Days until ${target.toLocaleString("en-US", {
-      month: "long",
-      day: "numeric",
-    })}`;
   }
 
   const diffMs = target.getTime() - today.getTime();
   const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  return { daysRemaining: days, deadlineLabel };
-}
-
-/** If days < 5 => show urgent. */
-function UrgentWarning() {
-  return (
-    <div className="bg-red-100 text-red-700 p-2 rounded mt-2 text-sm">
-      <strong>Urgent:</strong> Less than 5 days remaining. Consider express mail or calling the insurance company.
-    </div>
-  );
-}
-
-/** The 3 new box components. */
-function ModelChangeBox() {
-  const { daysRemaining, deadlineLabel } = calcDaysRemaining("model");
-
-  return (
-    <div className="bg-white rounded p-3 shadow flex flex-col md:flex-row gap-4 items-start mb-8">
-      <div className="flex-grow">
-        <div className="text-lg font-bold text-purple-700">
-          Insurance Model Change
-        </div>
-        {/* updated text per request */}
-        <div className="text-gray-600 text-sm mb-2">
-          Switch to family doctor, HMO or telemedicine (same insurer)
-        </div>
-      </div>
-      <div className="text-right">
-        <div
-          className={`text-4xl font-bold ${
-            daysRemaining <= 5 ? "text-red-600" : "text-purple-600"
-          }`}
-        >
-          {daysRemaining}
-        </div>
-        <div className="text-sm text-gray-600">{deadlineLabel}</div>
-        {daysRemaining <= 5 && <UrgentWarning />}
-      </div>
-    </div>
-  );
-}
-
-function MidYearChangeBox() {
-  const { daysRemaining, deadlineLabel } = calcDaysRemaining("midYear");
-
-  return (
-    <div className="bg-white rounded p-3 shadow flex flex-col md:flex-row gap-4 items-start mb-8">
-      <div className="flex-grow">
-        <div className="text-lg font-bold text-green-700">Mid-Year Change</div>
-        <div className="text-gray-600 text-sm mb-2">
-          Switch provider with new policy starting July 1
-        </div>
-      </div>
-      <div className="text-right">
-        <div
-          className={`text-4xl font-bold ${
-            daysRemaining <= 5 ? "text-red-600" : "text-green-600"
-          }`}
-        >
-          {daysRemaining}
-        </div>
-        <div className="text-sm text-gray-600">{deadlineLabel}</div>
-        {daysRemaining <= 5 && <UrgentWarning />}
-      </div>
-    </div>
-  );
-}
-
-function AnnualChangeBox() {
-  const { daysRemaining, deadlineLabel } = calcDaysRemaining("annual");
-
-  return (
-    <div className="bg-white rounded p-3 shadow flex flex-col md:flex-row gap-4 items-start mb-8">
-      <div className="flex-grow">
-        <div className="text-lg font-bold text-blue-700">Annual Change</div>
-        <div className="text-gray-600 text-sm mb-2">
-          Switch provider for next year <br />
-          <span className="text-xs text-gray-500">
-            (Current prices are for reference; new rates by Oct 1)
-          </span>
-        </div>
-      </div>
-      <div className="text-right">
-        <div
-          className={`text-4xl font-bold ${
-            daysRemaining <= 5 ? "text-red-600" : "text-blue-600"
-          }`}
-        >
-          {daysRemaining}
-        </div>
-        <div className="text-sm text-gray-600">{deadlineLabel}</div>
-        {daysRemaining <= 5 && <UrgentWarning />}
-      </div>
-    </div>
-  );
+  return days;
 }
 
 /** 
- * We replace the "DowngradePlansBoxes" boxes with a white container + table:
- * 
- * Columns: 
- *   Plan type | Plan name | Monthly premium | Annual savings | (View plan)
- * 
- * Show current plan first => in the "Annual savings" cell => "Current plan"
- * Then Family doctor (TAR-HAM), HMO (TAR-HMO), Other plans (TAR-DIV),
- * sorted from cheapest to most expensive within each category.
+ * Renders a box that is either "active" => green or red text,
+ * or "inactive" => grey => "Savings locked."
+ * We pass daysRemaining, if active => day-based text, else locked.
  */
+function BoxWrapper({
+  active,
+  daysRemaining,
+  title,
+  description,
+}: {
+  active: boolean;
+  daysRemaining: number;
+  title: string;
+  description: React.ReactNode; // fix "Cannot find namespace 'JSX'." => use React.ReactNode
+}) {
+  if (!active) {
+    return (
+      <div className="bg-gray-300 text-black rounded p-3 shadow flex flex-col gap-2 mb-8">
+        <div className="text-lg font-bold">{title}</div>
+        <div className="text-sm">
+          <strong>Savings locked:</strong> new premiums will be available
+          beginning of October.
+        </div>
+        <div className="text-sm mt-2 italic">{description}</div>
+      </div>
+    );
+  }
+
+  const isShortDeadline = daysRemaining <= 5;
+  const boxClass = isShortDeadline
+    ? "bg-red-100 text-red-800"
+    : "bg-green-100 text-green-800";
+
+  return (
+    <div className={`${boxClass} rounded p-3 shadow flex flex-col gap-2 mb-8`}>
+      <div className="text-lg font-bold">{title}</div>
+      {isShortDeadline ? (
+        <div className="text-sm">
+          <strong>Savings unlocked:</strong> Less than {daysRemaining} days
+          remaining. Consider express mail or calling the insurance company.
+        </div>
+      ) : (
+        <div className="text-sm">
+          <strong>Savings unlocked:</strong> Act now to change the insurance
+          plan.
+        </div>
+      )}
+      <div className="text-sm mt-2 italic">{description}</div>
+    </div>
+  );
+}
+
+function ModelChangeBox({
+  active,
+  daysRemaining,
+}: {
+  active: boolean;
+  daysRemaining: number;
+}) {
+  return (
+    <BoxWrapper
+      active={active}
+      daysRemaining={daysRemaining}
+      title="Insurance Model Change"
+      description={
+        <>
+          Switch to family doctor, HMO or telemedicine (same insurer). <br />
+          (Applies to standard model only, excludes November.)
+        </>
+      }
+    />
+  );
+}
+
+function MidYearChangeBox({
+  active,
+  daysRemaining,
+}: {
+  active: boolean;
+  daysRemaining: number;
+}) {
+  return (
+    <BoxWrapper
+      active={active}
+      daysRemaining={daysRemaining}
+      title="Mid-Year Change"
+      description={
+        <>
+          Switch provider with new policy starting July 1. <br />
+          (Active Jan–Mar if standard model &amp; lowest deductible.)
+        </>
+      }
+    />
+  );
+}
+
+function AnnualChangeBox({
+  active,
+  daysRemaining,
+}: {
+  active: boolean;
+  daysRemaining: number;
+}) {
+  return (
+    <BoxWrapper
+      active={active}
+      daysRemaining={daysRemaining}
+      title="Annual Change"
+      description={
+        <>
+          Switch provider for next year. <br />
+          (Active only in November; otherwise locked until new premiums in
+          October.)
+        </>
+      }
+    />
+  );
+}
+
+/** The "downgrade" table => if we have standard plan plus same insurer hamper/hmo/other. */
 function DowngradePlansBoxes({
   currentPlanRow,
   allPlansForInsurer,
@@ -227,73 +236,53 @@ function DowngradePlansBoxes({
   const currentInsurer = currentPlanRow.insurer_name || "this insurer";
   const currentCost = parseFloat(currentPlanRow.praemie);
 
-  // We'll map plan types to labels
   function planTypeLabel(typ: string) {
     if (typ === "TAR-HAM") return "Family doctor";
     if (typ === "TAR-HMO") return "HMO";
     return "Other plan types";
   }
 
-  // 1) current plan => one row
   const rows: {
     planType: string;
     planName: string;
     monthly: string;
     annualSavings: string;
-    rawDiff?: number;
   }[] = [];
 
-  const firstRow = {
+  rows.push({
     planType: TYPE_LABELS[currentPlanRow.tariftyp || "TAR-BASE"] || "Standard",
     planName: currentPlanRow.plan_label || currentPlanRow.tarif || "",
     monthly: formatMonthly(currentCost),
     annualSavings: "Current plan",
-    rawDiff: 0,
-  };
-  rows.push(firstRow);
+  });
 
-  // 2) gather "Family doc => TAR-HAM", "HMO => TAR-HMO", "Other => TAR-DIV"
-  const categories: ("TAR-HAM" | "TAR-HMO" | "TAR-DIV")[] = [
-    "TAR-HAM",
-    "TAR-HMO",
-    "TAR-DIV",
-  ];
+  const categories = ["TAR-HAM", "TAR-HMO", "TAR-DIV"] as const;
   const grouped: Record<"TAR-HAM" | "TAR-HMO" | "TAR-DIV", PlanOption[]> = {
     "TAR-HAM": [],
     "TAR-HMO": [],
     "TAR-DIV": [],
   };
 
-  // fill grouped
   for (const p of allPlansForInsurer) {
-    const cat = (p.tariftyp || "TAR-DIV") as
-      | "TAR-HAM"
-      | "TAR-HMO"
-      | "TAR-DIV";
+    const cat = (p.tariftyp || "TAR-DIV") as "TAR-HAM" | "TAR-HMO" | "TAR-DIV";
     if (categories.includes(cat)) {
       grouped[cat].push(p);
     }
   }
-
-  // sort each category by monthly premium ascending
   for (const cat of categories) {
     grouped[cat].sort((a, b) => parseFloat(a.praemie) - parseFloat(b.praemie));
   }
 
-  // create the row data
   for (const cat of categories) {
     for (const p of grouped[cat]) {
-      const c = parseFloat(p.praemie);
-      const diff = (currentCost - c) * 12;
-      const { text, colorClass, show } = formatCostDiff(diff);
-      const savingsStr = show ? text : "";
-
+      const cost = parseFloat(p.praemie);
+      const diff = (currentCost - cost) * 12;
+      const { text, show } = formatCostDiff(diff);
       rows.push({
         planType: planTypeLabel(p.tariftyp || "TAR-DIV"),
         planName: p.plan_label || p.tarif || "",
-        monthly: formatMonthly(c),
-        annualSavings: savingsStr,
-        rawDiff: diff,
+        monthly: formatMonthly(cost),
+        annualSavings: show ? text : "",
       });
     }
   }
@@ -303,8 +292,6 @@ function DowngradePlansBoxes({
       <h3 className="text-lg font-bold mb-2">
         {`Other plan models from ${currentInsurer}`}
       </h3>
-
-      {/* A table with columns: Type | Name | Monthly | Annual savings | button */}
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b">
@@ -312,42 +299,37 @@ function DowngradePlansBoxes({
             <th className="text-left p-2 font-bold">Plan name</th>
             <th className="text-left p-2 font-bold">Monthly premium</th>
             <th className="text-left p-2 font-bold">Annual savings</th>
-            <th className="text-left p-2 font-bold"></th>
+            <th className="p-2"></th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, idx) => (
-            <tr key={idx} className="border-b">
-              <td className="p-2">{r.planType}</td>
-              <td className="p-2">{r.planName}</td>
-              <td className="p-2">{r.monthly}</td>
-              <td
-                className={`p-2 ${
-                  r.annualSavings.startsWith("-")
-                    ? "text-green-600"
-                    : r.annualSavings.startsWith("+")
-                    ? "text-red-600"
-                    : ""
-                }`}
-              >
-                {r.annualSavings}
-              </td>
-              <td className="p-2">
-                <button className="bg-blue-600 text-white rounded px-2 py-1 text-sm">
-                  View plan
-                </button>
-              </td>
-            </tr>
-          ))}
+          {rows.map((r, idx) => {
+            let colorClass = "";
+            if (r.annualSavings.startsWith("-")) colorClass = "text-green-600";
+            else if (r.annualSavings.startsWith("+"))
+              colorClass = "text-red-600";
+
+            return (
+              <tr key={idx} className="border-b">
+                <td className="p-2">{r.planType}</td>
+                <td className="p-2">{r.planName}</td>
+                <td className="p-2">{r.monthly}</td>
+                <td className={`p-2 ${colorClass}`}>{r.annualSavings}</td>
+                <td className="p-2">
+                  <a href="#" className="text-blue-600 underline cursor-pointer">
+                    View plan
+                  </a>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
-/* ------------------------------------------------------------------
-   The main WizardClient component 
------------------------------------------------------------------- */
+/** The main WizardClient implementing the new monthly logic + all your functionalities. */
 export default function WizardClient() {
   const searchParams = useSearchParams();
 
@@ -357,6 +339,7 @@ export default function WizardClient() {
   const queryAccident = searchParams.get("accident") || "";
   const queryPostalId = parseInt(searchParams.get("postalId") || "0", 10);
 
+  // Single source of truth for user inputs
   const [userInputs, setUserInputs] = useState<UserInputs>({
     yearOfBirth: 0,
     franchise: 0,
@@ -396,6 +379,7 @@ export default function WizardClient() {
     "TAR-DIV": [],
   });
 
+  // fetch plan data for the 4 box logic + new logic
   useEffect(() => {
     if (!userInputs.canton || !userInputs.region || !userInputs.altersklasse) {
       setGroupedByType({
@@ -466,9 +450,129 @@ export default function WizardClient() {
     userInputs.unfalleinschluss,
   ]);
 
-  // Build the 4 top boxes
+  /** The logic that decides which boxes to show => model, midYear, annual. */
+  function decideNewBoxesToShow(): React.ReactNode[] {
+    const result: React.ReactNode[] = [];
+    if (
+      userInputs.currentInsurer === "I have no insurer" ||
+      !userInputs.currentPlan
+    ) {
+      return result;
+    }
+
+    // find plan type => if standard => "TAR-BASE" => possible model box
+    // also check if lowest ded => adult=300 or child=0
+    let planType = "TAR-DIV";
+    let foundStandardPlan: PlanOption | null = null;
+    if (groupedByType["TAR-BASE"]?.length) {
+      foundStandardPlan = groupedByType["TAR-BASE"].find(
+        (p) =>
+          p.insurer_name === userInputs.currentInsurer &&
+          p.tarif === userInputs.currentPlan
+      );
+      if (foundStandardPlan) {
+        planType = "TAR-BASE";
+      }
+    }
+    if (!foundStandardPlan) {
+      for (const cat of ["TAR-HAM", "TAR-HMO", "TAR-DIV"] as const) {
+        const arr = groupedByType[cat];
+        if (arr?.length) {
+          const f = arr.find(
+            (p) =>
+              p.insurer_name === userInputs.currentInsurer &&
+              p.tarif === userInputs.currentPlan
+          );
+          if (f) {
+            planType = cat;
+            break;
+          }
+        }
+      }
+    }
+    const isChild = userInputs.altersklasse === "AKL-KIN";
+    const isLowestDed =
+      (isChild && userInputs.franchise === 0) ||
+      (!isChild && userInputs.franchise === 300);
+
+    const now = new Date();
+    const month = now.getMonth(); // 0-based => 0=january, 10=nov
+
+    function daysFor(type: "model" | "midYear" | "annual") {
+      return calcDaysRemaining(type);
+    }
+
+    // 1) Model change => if planType="TAR-BASE" && month!=10 => show active
+    if (planType === "TAR-BASE" && month !== 10) {
+      const d = daysFor("model");
+      // always active if shown => no special month except exclude nov
+      result.push(<ModelChangeBox key="box-model" active={true} daysRemaining={d} />);
+
+      // show "downgrade" table => if foundStandardPlan
+      if (foundStandardPlan) {
+        const sameInsurerPlans: PlanOption[] = [];
+        ["TAR-HAM", "TAR-HMO", "TAR-DIV"].forEach((cat) => {
+          if (groupedByType[cat]?.length) {
+            groupedByType[cat].forEach((p) => {
+              if (p.insurer_name === foundStandardPlan!.insurer_name) {
+                sameInsurerPlans.push(p);
+              }
+            });
+          }
+        });
+        result.push(
+          <DowngradePlansBoxes
+            key="downgrade"
+            currentPlanRow={foundStandardPlan}
+            allPlansForInsurer={sameInsurerPlans}
+          />
+        );
+      }
+    }
+
+    // 2) MidYear vs Annual
+    // if planType= "TAR-BASE" & isLowestDed => january..march => midYear => else annual
+    if (planType === "TAR-BASE" && isLowestDed) {
+      if (month >= 0 && month <= 2) {
+        // midYear => active => day logic
+        const d = daysFor("midYear");
+        result.push(
+          <MidYearChangeBox key="box-midYear" active={true} daysRemaining={d} />
+        );
+        return result;
+      } else {
+        // annual => if month=10 => active => else inactive
+        if (month === 10) {
+          const d = daysFor("annual");
+          result.push(
+            <AnnualChangeBox key="box-annual" active={true} daysRemaining={d} />
+          );
+        } else {
+          result.push(
+            <AnnualChangeBox key="box-annual" active={false} daysRemaining={0} />
+          );
+        }
+        return result;
+      }
+    } else {
+      // plan is not standard-lower => always show annual
+      if (month === 10) {
+        const d = daysFor("annual");
+        result.push(
+          <AnnualChangeBox key="box-annual" active={true} daysRemaining={d} />
+        );
+      } else {
+        result.push(
+          <AnnualChangeBox key="box-annual" active={false} daysRemaining={0} />
+        );
+      }
+      return result;
+    }
+  }
+
+  // 3) Build the top 4 comparison boxes => single function => no duplicates
   function buildBoxes() {
-    // same logic as before
+    // same code from earlier that we used for the 4 top boxes
     const hasNoData = TYPE_ORDER.every((t) => !groupedByType[t].length);
     if (hasNoData) {
       return TYPE_ORDER.map((typ) => ({
@@ -514,6 +618,7 @@ export default function WizardClient() {
         };
       });
     }
+
     let currentRow: PlanOption | null = null;
     let currentTyp = "TAR-DIV";
     for (const typ of TYPE_ORDER) {
@@ -544,6 +649,7 @@ export default function WizardClient() {
         costDiffClass: "",
       }));
     }
+
     const cm = parseFloat(currentRow.praemie);
     const box1 = {
       headerLine1: "Current plan",
@@ -560,7 +666,10 @@ export default function WizardClient() {
     const arrSame = groupedByType[currentTyp] || [];
     const cheapestSame = arrSame.find(
       (p) =>
-        !(p.insurer_name === userInputs.currentInsurer && p.tarif === userInputs.currentPlan)
+        !(
+          p.insurer_name === userInputs.currentInsurer &&
+          p.tarif === userInputs.currentPlan
+        )
     );
     let box2;
     if (!cheapestSame) {
@@ -578,7 +687,8 @@ export default function WizardClient() {
     } else {
       const c2m = parseFloat(cheapestSame.praemie);
       const diff2 = (cm - c2m) * 12;
-      const d2 = formatCostDiff(diff2);
+      const { text: t2, show: s2 } = formatCostDiff(diff2);
+
       box2 = {
         headerLine1: "Cheapest option",
         headerLine2: TYPE_LABELS[currentTyp],
@@ -587,8 +697,8 @@ export default function WizardClient() {
         insurer: cheapestSame.insurer_name || "(??)",
         planName: cheapestSame.plan_label || cheapestSame.tarif || "",
         monthly: formatMonthly(c2m),
-        costDiffText: d2.show ? d2.text : "",
-        costDiffClass: d2.colorClass,
+        costDiffText: s2 ? t2 : "",
+        costDiffClass: "",
       };
     }
 
@@ -596,14 +706,14 @@ export default function WizardClient() {
     const arrOthers: { row: PlanOption; cost: number }[] = [];
     for (const ot of otherTypes) {
       const arr2 = groupedByType[ot];
-      if (arr2 && arr2.length) {
+      if (arr2?.length) {
         arrOthers.push({ row: arr2[0], cost: parseFloat(arr2[0].praemie) });
       }
     }
     arrOthers.sort((a, b) => a.cost - b.cost);
 
     let box3, box4;
-    if (arrOthers.length === 0) {
+    if (!arrOthers.length) {
       box3 = {
         headerLine1: "Cheapest option",
         headerLine2: "",
@@ -619,7 +729,8 @@ export default function WizardClient() {
     } else if (arrOthers.length === 1) {
       const first = arrOthers[0];
       const diff3 = (cm - first.cost) * 12;
-      const d3 = formatCostDiff(diff3);
+      const { text: t3, show: s3 } = formatCostDiff(diff3);
+
       box3 = {
         headerLine1: "Cheapest option",
         headerLine2: TYPE_LABELS[getPlanType(first.row)],
@@ -628,8 +739,8 @@ export default function WizardClient() {
         insurer: first.row.insurer_name || "(??)",
         planName: first.row.plan_label || first.row.tarif || "",
         monthly: formatMonthly(first.cost),
-        costDiffText: d3.show ? d3.text : "",
-        costDiffClass: d3.colorClass,
+        costDiffText: s3 ? t3 : "",
+        costDiffClass: "",
       };
       box4 = {
         headerLine1: "Cheapest option",
@@ -646,9 +757,10 @@ export default function WizardClient() {
       const first = arrOthers[0];
       const second = arrOthers[1];
       const diff3 = (cm - first.cost) * 12;
+      const { text: t3, show: s3 } = formatCostDiff(diff3);
+
       const diff4 = (cm - second.cost) * 12;
-      const d3 = formatCostDiff(diff3);
-      const d4 = formatCostDiff(diff4);
+      const { text: t4, show: s4 } = formatCostDiff(diff4);
 
       box3 = {
         headerLine1: "Cheapest option",
@@ -658,8 +770,8 @@ export default function WizardClient() {
         insurer: first.row.insurer_name || "(??)",
         planName: first.row.plan_label || first.row.tarif || "",
         monthly: formatMonthly(first.cost),
-        costDiffText: d3.show ? d3.text : "",
-        costDiffClass: d3.colorClass,
+        costDiffText: s3 ? t3 : "",
+        costDiffClass: "",
       };
       box4 = {
         headerLine1: "Cheapest option",
@@ -669,96 +781,17 @@ export default function WizardClient() {
         insurer: second.row.insurer_name || "(??)",
         planName: second.row.plan_label || second.row.tarif || "",
         monthly: formatMonthly(second.cost),
-        costDiffText: d4.show ? d4.text : "",
-        costDiffClass: d4.colorClass,
+        costDiffText: s4 ? t4 : "",
+        costDiffClass: "",
       };
     }
 
     return [box1, box2, box3, box4];
   }
 
-  function decideNewBoxesToShow(): React.ReactNode[] {
-    // same logic => show ModelChangeBox + table => or midYear/annual 
-    const result: React.ReactNode[] = [];
-    if (
-      userInputs.currentInsurer !== "I have no insurer" &&
-      userInputs.currentPlan
-    ) {
-      const isChild = userInputs.altersklasse === "AKL-KIN";
-      const isLowestDed =
-        (isChild && userInputs.franchise === 0) ||
-        (!isChild && userInputs.franchise === 300);
-
-      let currentPlanRow: PlanOption | null = null;
-      let planType = "TAR-DIV";
-
-      // see if current plan is TAR-BASE
-      if (groupedByType["TAR-BASE"]?.length) {
-        const f = groupedByType["TAR-BASE"].find(
-          (p) =>
-            p.insurer_name === userInputs.currentInsurer &&
-            p.tarif === userInputs.currentPlan
-        );
-        if (f) {
-          currentPlanRow = f;
-          planType = "TAR-BASE";
-        }
-      }
-      if (!currentPlanRow) {
-        for (const cat of ["TAR-HAM", "TAR-HMO", "TAR-DIV"] as const) {
-          const arr = groupedByType[cat];
-          if (arr?.length) {
-            const found = arr.find(
-              (p) =>
-                p.insurer_name === userInputs.currentInsurer &&
-                p.tarif === userInputs.currentPlan
-            );
-            if (found) {
-              currentPlanRow = found;
-              planType = cat;
-              break;
-            }
-          }
-        }
-      }
-
-      if (planType === "TAR-BASE") {
-        result.push(<ModelChangeBox key="box-model" />);
-        if (currentPlanRow) {
-          // gather hamper/hmo/div => show in a table
-          const sameInsurerPlans: PlanOption[] = [];
-          ["TAR-HAM", "TAR-HMO", "TAR-DIV"].forEach((cat) => {
-            if (groupedByType[cat]?.length) {
-              groupedByType[cat].forEach((p) => {
-                if (p.insurer_name === currentPlanRow?.insurer_name) {
-                  sameInsurerPlans.push(p);
-                }
-              });
-            }
-          });
-          result.push(
-            <DowngradePlansBoxes
-              key="downgrade"
-              currentPlanRow={currentPlanRow}
-              allPlansForInsurer={sameInsurerPlans}
-            />
-          );
-        }
-        if (isLowestDed) {
-          result.push(<MidYearChangeBox key="box-midYear" />);
-        } else {
-          result.push(<AnnualChangeBox key="box-annual" />);
-        }
-      } else {
-        // any other => annual only
-        result.push(<AnnualChangeBox key="box-annual" />);
-      }
-    }
-    return result;
-  }
-
-  const topBoxes = buildBoxes();
+  // ====================== MAIN RENDER ======================
   const newBoxes = decideNewBoxesToShow();
+  const topBoxes = buildBoxes();
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -784,10 +817,12 @@ export default function WizardClient() {
             />
           </div>
 
-          {/* Right => new boxes + 4 comparison boxes + PlanOptionsPanel */}
+          {/* Right => new boxes + 4 top boxes + PlanOptionsPanel */}
           <div className="flex-1">
+            {/* 1) The monthly logic boxes => model / midYear / annual => active/inactive */}
             {newBoxes}
 
+            {/* 2) The 4 top comparison boxes */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {topBoxes.map((box, idx) => (
                 <div
@@ -813,19 +848,20 @@ export default function WizardClient() {
                       {box.monthly}
                     </div>
                     {box.costDiffText && (
-                      <div
-                        className={`text-xl font-semibold ${box.costDiffClass} mb-2`}
-                      >
+                      <div className="text-xl font-semibold mb-2">
                         {box.costDiffText}
                       </div>
                     )}
 
                     <div className="flex-grow" />
                     <div>
-                      <button className="px-4 py-2 rounded bg-blue-600 text-white cursor-pointer text-base whitespace-nowrap">
+                      {/* Replaced button => link */}
+                      <a
+                        href="#"
+                        className="text-blue-600 underline cursor-pointer text-base"
+                      >
                         View plan
-                      </button>
-
+                      </a>
                       <div className="mt-2 text-sm flex items-center justify-between">
                         <span>Compare</span>
                         <input type="checkbox" className="ml-4 scale-125" />
@@ -836,6 +872,7 @@ export default function WizardClient() {
               ))}
             </div>
 
+            {/* 3) The final PlanOptionsPanel => "Annual savings" column header */}
             <PlanOptionsPanel userInputs={userInputs} />
           </div>
         </div>
