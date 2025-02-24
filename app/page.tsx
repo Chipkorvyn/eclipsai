@@ -93,7 +93,7 @@ export default function HomePage() {
       });
   }, []);
 
-  // If insurer is selected => fetch plan list (bag_code only)
+  // If insurer is selected => fetch plan list
   useEffect(() => {
     if (!insurerBagCode) {
       setPlanList([]);
@@ -101,7 +101,6 @@ export default function HomePage() {
       return;
     }
 
-    // Just fetch all plans for that insurer (this does not filter by region, etc.)
     const url = `/api/insurerPlans?bag_code=${insurerBagCode}`;
     fetch(url)
       .then((res) => res.json())
@@ -113,7 +112,7 @@ export default function HomePage() {
       });
   }, [insurerBagCode]);
 
-  // Group the plan list by plan type, for <optgroup>
+  // Group the plan list by plan type
   const groupedPlans = groupPlansByType(planList);
 
   // Update franchise options whenever YOB changes
@@ -166,14 +165,14 @@ export default function HomePage() {
       return;
     }
 
-    // Build the query string with user inputs
+    // Build the query string
     const params = new URLSearchParams({
       yob: String(parsedYob),
       franchise: String(franchise),
       accident: accidentCoverage,
       postalId: String(selectedPostal?.id || ""),
-      insurerBagCode: insurerBagCode, // can be "" if none
-      plan: planChoice, // can be "" if none
+      insurerBagCode: insurerBagCode,
+      plan: planChoice,
     });
 
     router.push(`/wizard?${params.toString()}`);
@@ -234,9 +233,11 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Franchise */}
+        {/* Own risk (deductible) */}
         <div>
-          <label className="font-medium mb-1 block">Own risk</label>
+          <label className="font-medium mb-1 block">
+            Own risk (deductible)
+          </label>
           <select
             className="w-full p-2 rounded border border-gray-300"
             value={franchise === "" ? "" : franchise}

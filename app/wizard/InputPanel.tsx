@@ -23,7 +23,7 @@ export interface UserInputs {
   currentInsurerBagCode: string;
   currentInsurer: string;
   currentPlan: string;
-  currentPlanRow: unknown; // or more specific if you want
+  currentPlanRow: unknown;
   postalId: number;
 }
 
@@ -131,7 +131,7 @@ export default function InputPanel({
     (partial: Partial<UserInputs>) => {
       const ak = computeAltersklasse(partial.yearOfBirth || 0);
       const newObj: UserInputs = {
-        ...userInputs, // old
+        ...userInputs,
         ...partial,
         altersklasse: ak,
       };
@@ -151,7 +151,6 @@ export default function InputPanel({
     setLocalInsurer(userInputs.currentInsurer || "I have no insurer");
     setLocalPlan(userInputs.currentPlan || "");
 
-    // If userInputs.postalId => fetch that row so we can auto-select
     if (userInputs.postalId && userInputs.postalId > 0) {
       fetch(`/api/postalById?id=${userInputs.postalId}`)
         .then((r) => r.json())
@@ -238,7 +237,13 @@ export default function InputPanel({
       .then((r) => r.json())
       .then((arr: PlanListItem[]) => setPlanList(arr))
       .catch(() => setPlanList([]));
-  }, [localInsurerBagCode, localYob, localFranchise, localAccident, selectedPostal]);
+  }, [
+    localInsurerBagCode,
+    localYob,
+    localFranchise,
+    localAccident,
+    selectedPostal,
+  ]);
 
   // Once we have the postal row + YOB + franchise + accident => do one commit
   useEffect(() => {
@@ -279,7 +284,6 @@ export default function InputPanel({
     setPlzInput(row.plz);
     setPostalMatches([]);
 
-    // Immediately commit so wizard knows
     commitChanges({
       yearOfBirth: localYob,
       franchise: localFranchise,
@@ -357,7 +361,7 @@ export default function InputPanel({
       unfalleinschluss: localAccident,
       currentInsurerBagCode: val,
       currentInsurer: newName,
-      currentPlan: "", // reset plan if insurer changes
+      currentPlan: "",
       postalId: selectedPostal ? selectedPostal.id : 0,
       canton: selectedPostal?.kanton || "",
       region: selectedPostal ? `PR-REG CH${selectedPostal.region_int}` : "",
@@ -499,7 +503,6 @@ export default function InputPanel({
     }
     setLocalInsurer(name);
 
-    // Immediately commit => so wizard sees updated
     commitChanges({
       yearOfBirth: p.year_of_birth || 0,
       franchise: p.franchise || 0,
@@ -535,7 +538,7 @@ export default function InputPanel({
 
   return (
     <div className="flex flex-col">
-      {/* Box 1: Select to Compare */}
+      {/* Box 1: Current plan */}
       <div className="bg-white rounded-lg p-4 mb-4">
         <h4 className="text-lg font-semibold mb-2">Select to compare</h4>
 
@@ -610,7 +613,6 @@ export default function InputPanel({
           }}
         />
 
-        {/* Show postal suggestions */}
         {postalMatches.length > 0 && !selectedPostal && (
           <ul className="border border-gray-300 mt-1 max-h-40 overflow-y-auto m-0 p-0">
             {postalMatches.map((row) => (
@@ -630,7 +632,9 @@ export default function InputPanel({
       <div className="bg-white rounded-lg p-4 mb-4">
         <h4 className="text-lg font-semibold mb-2">Insurance preferences</h4>
 
-        <label className="block font-medium mb-1">Own risk</label>
+        <label className="block font-medium mb-1">
+          Own risk (deductible)
+        </label>
         <select
           className="w-full p-2 rounded border border-gray-300 mb-4"
           value={localFranchise}
@@ -670,7 +674,11 @@ export default function InputPanel({
         <button
           className={`
             px-4 py-2 rounded font-semibold text-white 
-            ${canSaveProfile() ? "bg-blue-600" : "bg-gray-400 cursor-not-allowed"}
+            ${
+              canSaveProfile()
+                ? "bg-blue-600"
+                : "bg-gray-400 cursor-not-allowed"
+            }
           `}
           onClick={handleSaveProfile}
           disabled={!canSaveProfile()}
