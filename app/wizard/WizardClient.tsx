@@ -68,7 +68,6 @@ function lastWorkingDayBefore(year: number, monthIndex: number, day: number) {
  * - model => end of this month
  * - midYear => end of March 31
  * - annual => end of Nov 30
- * Also return the date label => "Days until <date>".
  */
 function calcDaysAndDeadline(type: "model" | "midYear" | "annual"): {
   days: number;
@@ -101,98 +100,14 @@ function calcDaysAndDeadline(type: "model" | "midYear" | "annual"): {
     }
   }
 
-  const days = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const days = Math.ceil(
+    (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+  );
   const deadlineLabel = target.toLocaleString("en-US", {
     month: "long",
     day: "numeric",
   });
   return { days, deadlineLabel };
-}
-
-/**
- * A shared function to style the 3 boxes: 
- * "Insurance Model Change", "Mid-Year Change", "Annual Change"
- * With right-aligned day count, text, and a color-coded box.
- * Also makes "Savings locked"/"Savings unlocked" bold, with the rest on a new line.
- */
-function BoxDesign({
-  title,
-  subtitle,
-  active,
-  daysRemaining,
-  deadlineLabel,
-}: {
-  title: string;
-  subtitle: string;
-  active: boolean;
-  daysRemaining: number;
-  deadlineLabel: string;
-}) {
-  let colorClass = "";
-  let smallBoxClass = "";
-  let message = "";
-
-  if (!active) {
-    if (title === "Annual Change") {
-      colorClass = "text-gray-800";
-      smallBoxClass = "bg-gray-100 border border-gray-800 text-gray-800";
-      message =
-        "Savings locked: new premiums will be available beginning of October.";
-    } else {
-      colorClass = "text-black";
-      smallBoxClass = "bg-gray-300 border border-gray-600 text-black";
-      message =
-        "Savings locked: new premiums will be available beginning of October.";
-    }
-  } else {
-    const isShortDeadline = daysRemaining <= 5;
-    if (isShortDeadline) {
-      colorClass = "text-red-700";
-      smallBoxClass = "bg-red-100 border border-red-700 text-red-700";
-      message = `Savings unlocked: Less than ${daysRemaining} days remaining. Consider express mail or calling the insurance company.`;
-    } else {
-      colorClass = "text-green-700";
-      smallBoxClass = "bg-green-100 border border-green-700 text-green-700";
-      message = "Savings unlocked: Act to change the insurance plan.";
-    }
-  }
-
-  // Split out "Savings locked"/"Savings unlocked" as bold + rest on new line
-  let boldText = "";
-  let restText = "";
-  if (message.startsWith("Savings locked:")) {
-    boldText = "Savings locked";
-    restText = message.replace("Savings locked:", "").trim();
-  } else if (message.startsWith("Savings unlocked:")) {
-    boldText = "Savings unlocked";
-    restText = message.replace("Savings unlocked:", "").trim();
-  }
-
-  return (
-    <div className="bg-white shadow rounded p-4 mb-4">
-      {/* Title & subtitle */}
-      <div className={`font-bold text-xl mb-1`}>{title}</div>
-      <div className="text-lg mb-2">{subtitle}</div>
-
-      {/* Days and "Days until..." => right-aligned */}
-      <div className={`text-4xl font-bold mb-1 ${colorClass} text-right`}>
-        {daysRemaining}
-      </div>
-      <div className="text-right text-sm italic mb-2">{`Days until ${deadlineLabel}`}</div>
-
-      {/* smaller color-coded box => right-aligned */}
-      <div className={`rounded p-2 text-sm ${smallBoxClass} text-right`}>
-        {boldText ? (
-          <>
-            <div className="font-bold">{boldText}</div>
-            <div>{restText}</div>
-          </>
-        ) : (
-          message
-        )}
-      </div>
-    </div>
-  );
 }
 
 function ModelChangeBox({
@@ -255,10 +170,67 @@ function AnnualChangeBox({
   );
 }
 
+function BoxDesign({
+  title,
+  subtitle,
+  active,
+  daysRemaining,
+  deadlineLabel,
+}: {
+  title: string;
+  subtitle: string;
+  active: boolean;
+  daysRemaining: number;
+  deadlineLabel: string;
+}) {
+  let colorClass = "";
+  let smallBoxClass = "";
+  let message = "";
+
+  if (!active) {
+    if (title === "Annual Change") {
+      colorClass = "text-gray-800";
+      smallBoxClass = "bg-gray-100 border border-gray-800 text-gray-800";
+      message =
+        "Savings locked: new premiums will be available beginning of October.";
+    } else {
+      colorClass = "text-black";
+      smallBoxClass = "bg-gray-300 border border-gray-600 text-black";
+      message =
+        "Savings locked: new premiums will be available beginning of October.";
+    }
+  } else {
+    const isShortDeadline = daysRemaining <= 5;
+    if (isShortDeadline) {
+      colorClass = "text-red-700";
+      smallBoxClass = "bg-red-100 border border-red-700 text-red-700";
+      message = `Savings unlocked: Less than ${daysRemaining} days remaining. Consider express mail or calling the insurance company.`;
+    } else {
+      colorClass = "text-green-700";
+      smallBoxClass = "bg-green-100 border border-green-700 text-green-700";
+      message = "Savings unlocked: Act to change the insurance plan.";
+    }
+  }
+
+  return (
+    <div className="bg-white shadow rounded p-4 mb-4">
+      <div className={`font-bold text-xl mb-1`}>{title}</div>
+      <div className="text-lg mb-2">{subtitle}</div>
+
+      <div className={`text-4xl font-bold mb-1 ${colorClass} text-right`}>
+        {daysRemaining}
+      </div>
+      <div className="text-right text-sm italic mb-2">{`Days until ${deadlineLabel}`}</div>
+
+      <div className={`rounded p-2 text-sm ${smallBoxClass} text-right`}>
+        {message}
+      </div>
+    </div>
+  );
+}
+
 /**
- * If the difference is > 0 => cheaper => show “-xxx CHF/year” (green)
- * If < 0 => more expensive => show “+xxx CHF/year” (red)
- * If zero => hide
+ * For "Downgrade Plans" table => shows other plan types from the same insurer
  */
 function DowngradePlansBoxes({
   currentPlanRow,
@@ -372,6 +344,10 @@ export default function WizardClient() {
   const queryAccident = searchParams.get("accident") || "";
   const queryPostalId = parseInt(searchParams.get("postalId") || "0", 10);
 
+  // parse insurer + plan from query
+  const queryInsurerBagCode = searchParams.get("insurerBagCode") || "";
+  const queryPlan = searchParams.get("plan") || "";
+
   const [userInputs, setUserInputs] = useState<UserInputs>({
     yearOfBirth: 0,
     franchise: 0,
@@ -380,11 +356,16 @@ export default function WizardClient() {
     region: "",
     altersklasse: "",
     currentInsurerBagCode: "",
-    currentInsurer: "I have no insurer",
+    currentInsurer: "I have no insurer", // We'll update this soon
     currentPlan: "",
     currentPlanRow: null,
     postalId: 0,
   });
+
+  // Also store the insurer list in state, so we can find the name
+  const [insurerList, setInsurerList] = useState<
+    { bag_code: string; name: string }[]
+  >([]);
 
   useEffect(() => {
     const updates: Partial<UserInputs> = {};
@@ -395,10 +376,58 @@ export default function WizardClient() {
     }
     if (queryPostalId > 0) updates.postalId = queryPostalId;
 
+    // insurer + plan
+    if (queryInsurerBagCode) {
+      updates.currentInsurerBagCode = queryInsurerBagCode;
+    }
+    if (queryPlan) {
+      updates.currentPlan = queryPlan;
+    }
+
     if (Object.keys(updates).length > 0) {
       setUserInputs((prev) => ({ ...prev, ...updates }));
     }
-  }, [queryYob, queryFranchise, queryAccident, queryPostalId]);
+  }, [
+    queryYob,
+    queryFranchise,
+    queryAccident,
+    queryPostalId,
+    queryInsurerBagCode,
+    queryPlan,
+  ]);
+
+  // fetch the insurer list once, so we can find the name
+  useEffect(() => {
+    fetch("/api/insurers")
+      .then((r) => r.json())
+      .then((data: { bag_code: string; name: string }[]) => {
+        setInsurerList(data);
+      })
+      .catch(() => {
+        // ignore
+      });
+  }, []);
+
+  // if we have a bag_code but "I have no insurer" => find name
+  useEffect(() => {
+    const bc = userInputs.currentInsurerBagCode;
+    if (!bc) {
+      // no insurer
+      return;
+    }
+    if (userInputs.currentInsurer !== "I have no insurer") {
+      // already set
+      return;
+    }
+    // find the name
+    const found = insurerList.find((x) => x.bag_code === bc);
+    if (found) {
+      setUserInputs((prev) => ({
+        ...prev,
+        currentInsurer: found.name,
+      }));
+    }
+  }, [insurerList, userInputs.currentInsurerBagCode, userInputs.currentInsurer]);
 
   const handleUserInputsChange = useCallback((vals: Partial<UserInputs>) => {
     setUserInputs((prev) => ({ ...prev, ...vals }));
@@ -422,10 +451,7 @@ export default function WizardClient() {
       return;
     }
     const isChild = userInputs.altersklasse === "AKL-KIN";
-    if (
-      (!isChild && userInputs.franchise < 300) ||
-      (isChild && userInputs.franchise < 0)
-    ) {
+    if ((!isChild && userInputs.franchise < 300) || (isChild && userInputs.franchise < 0)) {
       setGroupedByType({
         "TAR-BASE": [],
         "TAR-HAM": [],
