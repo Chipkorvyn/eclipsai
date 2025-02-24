@@ -91,18 +91,17 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-blue-600 text-white flex flex-col items-center justify-center p-4">
       <h1 className="text-5xl text-center mb-5 leading-tight">
-        Save on Swiss Mandatory Health Insurance
+        Don't Wait Until November !
       </h1>
 
       <p className="text-2xl text-center mb-8">
-        Health insurance premiums went up by 6% in 2025.
+        Most health insurance savings happen in November, <br />
+        but some plans can be changed monthly or mid-year.
         <br />
-
-        Our users saved on average{" "}
-        <span className="text-black bg-white px-1 rounded">
-          550
-        </span>{" "}
-        CHF
+        <br />
+        <em>Alpha version focused on savings.
+        <br />
+        Accounts, saved data, and automations coming soon.</em>
       </p>
 
       <div className="bg-white text-black w-72 p-6 mb-4 rounded-lg flex flex-col gap-4">
