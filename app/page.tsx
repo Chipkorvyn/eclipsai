@@ -1,3 +1,4 @@
+// File: app/page.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -99,9 +100,9 @@ export default function HomePage() {
         but some plans can be changed monthly or mid-year.
         <br />
         <br />
-        <em>Alpha version focused on savings.
+        <em>Alpha version focused on savings.</em>
         <br />
-        Accounts, saved data, and automations coming soon.</em>
+        <em>Accounts, saved data, and automations coming soon.</em>
       </p>
 
       <div className="bg-white text-black w-72 p-6 mb-4 rounded-lg flex flex-col gap-4">
