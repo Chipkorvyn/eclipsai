@@ -92,7 +92,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-blue-600 text-white flex flex-col items-center justify-center p-4">
       <h1 className="text-5xl text-center mb-5 leading-tight">
-        Don't Wait Until November !
+        Don&#39;t Wait Until November!
       </h1>
 
       <p className="text-2xl text-center mb-8">
