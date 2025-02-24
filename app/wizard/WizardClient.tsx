@@ -356,7 +356,7 @@ export default function WizardClient() {
     region: "",
     altersklasse: "",
     currentInsurerBagCode: "",
-    currentInsurer: "I have no insurer", // We'll update this soon
+    currentInsurer: "I have no insurer",
     currentPlan: "",
     currentPlanRow: null,
     postalId: 0,
@@ -451,7 +451,10 @@ export default function WizardClient() {
       return;
     }
     const isChild = userInputs.altersklasse === "AKL-KIN";
-    if ((!isChild && userInputs.franchise < 300) || (isChild && userInputs.franchise < 0)) {
+    if (
+      (!isChild && userInputs.franchise < 300) ||
+      (isChild && userInputs.franchise < 0)
+    ) {
       setGroupedByType({
         "TAR-BASE": [],
         "TAR-HAM": [],
@@ -859,15 +862,26 @@ export default function WizardClient() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* top nav */}
-      <div className="bg-white h-12 flex-shrink-0 flex items-center">
+      {/* top nav => updated */}
+      <div className="bg-white flex-shrink-0 flex flex-wrap items-center justify-between px-4 py-2">
+        {/* Left => Eclipsai (blue) */}
         <div
           onClick={() => {
             window.location.href = "/";
           }}
-          className="ml-4 cursor-pointer font-bold text-lg"
+          className="cursor-pointer text-lg font-bold text-blue-600"
         >
           Eclipsai
+        </div>
+
+        {/* Right => "Questions on switching plans? WhatsApp 0792533746" */}
+        <div className="text-sm flex flex-wrap items-center mt-2 md:mt-0">
+          <span className="text-blue-600 font-bold mr-2">
+            Questions on switching plans?
+          </span>
+          <span className="text-green-600 whitespace-nowrap">
+            WhatsApp 0792533746
+          </span>
         </div>
       </div>
 
